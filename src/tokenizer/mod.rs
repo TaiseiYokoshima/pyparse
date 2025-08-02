@@ -1,8 +1,7 @@
 mod tokens;
-mod error;
-mod builder;
+mod tokenizer;
 mod units;
 
 pub use tokens::Token;
 pub use units::{Keyword, Operator};
-pub use builder::Tokenizer;
+pub use tokenizer::Tokenizer;
