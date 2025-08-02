@@ -28,6 +28,7 @@ impl Tokenizer {
 
     fn parse_char(&mut self, char: char) {
         if let Some(deliminiter) = Token::match_deliminiter(&char) {
+            println!("matched deliminiter: {:?}", char);
             if !self.builder.is_empty() {
                 self.parse_token();
             };

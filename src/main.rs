@@ -75,8 +75,7 @@ fn main() {
     let tokenizer = Tokenizer::new(src);
     let mut tokens = tokenizer.tokenize();
 
+    println!("\n\n\ntokens:\n{:?}", tokens);
 
-
-    
 
 }
