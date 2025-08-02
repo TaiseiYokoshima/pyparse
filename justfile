@@ -5,4 +5,4 @@ check_all:
    cargo check
 
 run:
-   cargo run -- test.py
+   @RUSTFLAGS="-Awarnings" cargo run --quiet -- test.py

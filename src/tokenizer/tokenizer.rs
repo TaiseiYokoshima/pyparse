@@ -20,7 +20,7 @@ impl Tokenizer {
         while let Some(char) = self.src.chars().next() {
             self.src.drain(..char.len_utf8());
             self.parse_char(char);
-        };
+        }
 
         self.parse_token();
         return self.tokens;
@@ -28,13 +28,12 @@ impl Tokenizer {
 
     fn parse_char(&mut self, char: char) {
         if let Some(deliminiter) = Token::match_deliminiter(&char) {
-            println!("matched deliminiter: {:?}", char);
             if !self.builder.is_empty() {
                 self.parse_token();
             };
 
             if deliminiter != Token::Space {
-                self.tokens.push(deliminiter);
+                self.add_token(deliminiter);
             }
 
             return;
@@ -43,14 +42,17 @@ impl Tokenizer {
         self.builder.push(char);
     }
 
+    fn add_token(&mut self, token: Token) {
+        println!("parsed: {:?}", token);
+        self.tokens.push(token);
+    }
+
     fn parse_token(&mut self) {
         if self.builder.is_empty() {
             return;
         }
 
         let token = Token::match_token(&mut self.builder);
-        println!("parsed: {:?}", token);
-        self.tokens.push(token);
+        self.add_token(token);
     }
-
 }

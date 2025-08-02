@@ -10,7 +10,6 @@ use tokenizer::Tokenizer;
 
 fn parse_path() -> path::PathBuf {
     let mut args: Vec<OsString> = env::args_os().collect();
-    println!("Args:\n{:?}\n", args);
 
     if args.len() > 2 {
         eprintln!("Error: More than 1 argument passed");

@@ -13,6 +13,7 @@ pub enum Keyword {
 }
 
 
+
 #[derive(Debug, EnumString, EnumVariantNames, PartialEq, Eq)]
 pub enum Operator {
     #[strum(serialize = "+")]
@@ -26,4 +27,7 @@ pub enum Operator {
 
     #[strum(serialize = "/")]
     Slash,
+
+    #[strum(serialize = "=")]
+    Assign,
 }

@@ -16,6 +16,7 @@ pub enum Token {
     Identifier(Box<str>),
     Number(Box<str>),
 
+
     String(Box<str>),
     Quote,
 }
@@ -62,7 +63,6 @@ impl Token {
     }
 
     pub fn match_deliminiter(char: &char) -> Option<Self> {
-        println!("came to match_deliminiter with {:?}", char);
         use std::str::FromStr;
         match char {
             ' ' => return Some(Self::Space),
@@ -71,7 +71,6 @@ impl Token {
             '\n' => return Some(Self::Newline),
             _ => (),
         };
-        println!("didn't match");
 
         if let Ok(operator) = Operator::from_str(char.to_string().as_str()) {
             return Some(Self::Operator(operator));
