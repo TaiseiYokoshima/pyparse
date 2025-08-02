@@ -1,0 +1,29 @@
+use strum_macros::{EnumString, EnumVariantNames};
+
+#[derive(Debug, EnumString, EnumVariantNames, PartialEq, Eq)]
+pub enum Keyword {
+    #[strum(serialize = "def")]
+    Def,
+
+    #[strum(serialize = "not")]
+    Not,
+
+    #[strum(serialize = "and")]
+    And,
+}
+
+
+#[derive(Debug, EnumString, EnumVariantNames, PartialEq, Eq)]
+pub enum Operator {
+    #[strum(serialize = "+")]
+    Plus, 
+
+    #[strum(serialize = "-")]
+    Minus,
+
+    #[strum(serialize = "*")]
+    Star,
+
+    #[strum(serialize = "/")]
+    Slash,
+}
