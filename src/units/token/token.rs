@@ -1,6 +1,5 @@
 use std::str::FromStr;
-
-use super::{Keyword, Operator};
+use crate::units::{Keyword, Operator};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Token {

@@ -1,4 +1,4 @@
-use super::Token;
+use crate::units::Token;
 
 #[derive(Debug)]
 pub struct Tokenizer {

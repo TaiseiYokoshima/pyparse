@@ -1,11 +1,11 @@
-use super::{ast::bp::get_infix, bp, Assign, Ast, BinOperation, BinOperator, Expr, Ident, Literal, BP};
-use crate::tokenizer::{Keyword, Operator, Token};
 use std::process::exit;
+
+use crate::units::{Token, Expr, Literal, BinOpn, BP, bp};
+use bp::get_infix;
 
 pub struct Parser {
     tokens: Vec<Token>,
     current: Vec<Token>,
-    ast: Ast,
 }
 
 impl Parser {
@@ -13,10 +13,8 @@ impl Parser {
         Parser {
             tokens,
             current: vec![],
-            ast: Ast::default(),
         }
     }
-
 
     fn next(&mut self) -> Token {
         self.tokens.remove(0)
@@ -26,14 +24,13 @@ impl Parser {
         self.tokens.get(0).unwrap()
     }
 
-
     fn pratt_parse(&mut self, min_bp: BP) -> Expr {
         let mut lhs = match self.next() {
-            Token::Number(number) => Expr::Literal(Literal::Number(number)), 
+            Token::Number(number) => Expr::Literal(Literal::Number(number)),
             token => {
                 eprint!("Error: Parser did not get a number");
                 exit(1);
-            },
+            }
         };
 
         loop {
@@ -43,7 +40,7 @@ impl Parser {
                 token => {
                     eprint!("Error: Parser did not get a newline or an operator");
                     exit(1);
-                },
+                }
             };
 
             let (l_bp, r_bp) = get_infix(op);
@@ -55,21 +52,12 @@ impl Parser {
             self.next();
 
             let rhs = self.pratt_parse(r_bp);
-            lhs = Expr::BinOp(Box::new(BinOperation::new(op,lhs,rhs)));
-
-        };
-        lhs    
+            lhs = Expr::BinOp(Box::new(BinOpn::new(op, lhs, rhs)));
+        }
+        lhs
     }
-    
-
 
     pub fn parse(mut self) -> Expr {
         self.pratt_parse(0.0)
     }
-
-
-    
-
-
-
 }
