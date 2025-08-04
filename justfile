@@ -1,5 +1,5 @@
 check:
-   RUSTFLAGS="-Awarnings" cargo check
+   @RUSTFLAGS="-Awarnings" cargo check --quiet
 
 check_all:
    cargo check

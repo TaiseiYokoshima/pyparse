@@ -12,13 +12,13 @@ pub enum Token {
 
     Operator(Operator),
 
+    Number(Box<str>),
     Keyword(Keyword),
     Identifier(Box<str>),
-    Number(Box<str>),
 
 
-    String(Box<str>),
-    Quote,
+    // String(Box<str>),
+    // Quote,
 }
 
 fn take_builder(builder: &mut Box<String>) -> Box<str> {

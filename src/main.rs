@@ -7,6 +7,9 @@ use std::path;
 mod tokenizer;
 use tokenizer::Tokenizer;
 
+mod parser;
+use parser::{Parser, Expr};
+
 
 fn parse_path() -> path::PathBuf {
     let mut args: Vec<OsString> = env::args_os().collect();
@@ -72,9 +75,16 @@ fn main() {
     };
 
     let tokenizer = Tokenizer::new(src);
-    let mut tokens = tokenizer.tokenize();
+    let tokens = tokenizer.tokenize();
 
     println!("\n\n\ntokens:\n{:?}", tokens);
+
+
+    let parser = Parser::new(tokens);
+    let expr = parser.parse();
+
+    println!("\n\n\nexpr:\n{}", expr);
+
 
 
 }
