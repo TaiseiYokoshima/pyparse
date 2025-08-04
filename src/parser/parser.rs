@@ -46,16 +46,15 @@ impl Parser {
                 },
             };
 
-            
             let (l_bp, r_bp) = get_infix(op);
             let op = op.clone().into();
 
             if min_bp > l_bp {
                 break;
             };
-
             self.next();
-            let rhs = self.pratt_parse(l_bp);
+
+            let rhs = self.pratt_parse(r_bp);
             lhs = Expr::BinOp(Box::new(BinOperation::new(op,lhs,rhs)));
 
         };

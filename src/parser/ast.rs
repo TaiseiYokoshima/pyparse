@@ -8,8 +8,8 @@ pub mod bp {
 
     pub const ADD: (BP, BP) = (1.0, 1.1);
     pub const SUB: (BP, BP) = (1.0, 1.1);
-    pub const MUL: (BP, BP) = (1.0, 1.1);
-    pub const DIV: (BP, BP) = (1.0, 1.1);
+    pub const MUL: (BP, BP) = (2.0, 2.1);
+    pub const DIV: (BP, BP) = (2.0, 2.1);
 
     pub const NEG: (BP, BP) = (10.0, 10.1);
     pub const NOT: (BP, BP) = (10.0, 10.1);
