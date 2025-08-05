@@ -31,6 +31,15 @@ impl Parser {
     fn pratt_parse(&mut self, min_bp: BP) -> Expr {
         let mut lhs = match self.next() {
             Token::Number(number) => Expr::Literal(Literal::Number(number)),
+            Token::LParen => {
+                let expr = self.pratt_parse(min_bp);
+                if self.peek() != &Token::RParen {
+                    eprint!("Error: Parser Could not find the closing parenthesis");
+                    exit(1);
+                };
+                self.next();
+                expr
+            },
             token => {
                 eprint!("Error: Parser did not get a number");
                 exit(1);
@@ -40,6 +49,7 @@ impl Parser {
         loop {
             let op = match self.peek() {
                 Token::Newline => break,
+                Token::RParen => break,
                 Token::Operator(operator) => operator.into(),
                 token => {
                     eprint!("Error: Parser did not get a newline or an operator");

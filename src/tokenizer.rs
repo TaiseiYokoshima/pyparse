@@ -92,7 +92,7 @@ impl Tokenizer {
     }
 
     fn add_token(&mut self, token: Token) {
-        println!("parsed: {:?}", token);
+        // println!("parsed: {:?}", token);
         self.tokens.push_back(token);
     }
 
