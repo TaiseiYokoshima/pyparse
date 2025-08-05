@@ -1,27 +1,31 @@
-use std::process::exit;
+use std::{process::exit, usize};
 
-use crate::units::{Token, Expr, Literal, BinOpn, BP, bp};
+use crate::{tokenizer::Lexer, units::{bp, BinOpn, Expr, Literal, Token, BP}};
 use bp::get_infix;
 
 pub struct Parser {
-    tokens: Vec<Token>,
+    lexer: Lexer,
     current: Vec<Token>,
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Self {
+    pub fn new(tokens: Lexer) -> Self {
         Parser {
-            tokens,
+            lexer: tokens,
             current: vec![],
         }
     }
 
     fn next(&mut self) -> Token {
-        self.tokens.remove(0)
+        self.lexer.next()
     }
 
     fn peek(&mut self) -> &Token {
-        self.tokens.get(0).unwrap()
+        self.lexer.peek()
+    }
+
+    fn peek_at(&mut self, index: usize) -> &Token {
+        self.lexer.peek_at(index)
     }
 
     fn pratt_parse(&mut self, min_bp: BP) -> Expr {

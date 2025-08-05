@@ -1,5 +1,5 @@
 mod tokenizer;
-use tokenizer::Tokenizer;
+use tokenizer::{Lexer, Tokenizer};
 
 mod parser;
 use parser::Parser;
@@ -14,11 +14,11 @@ fn main() {
     };
 
     let tokenizer = Tokenizer::new(src);
-    let tokens = tokenizer.tokenize();
+    let lexer = tokenizer.tokenize();
 
-    println!("\n\n\ntokens:\n{:?}", tokens);
+    println!("\n\n\n{}", lexer);
 
-    let parser = Parser::new(tokens);
+    let parser = Parser::new(lexer);
     let expr = parser.parse();
 
     println!("\n\n\nexpr:\n{}", expr);

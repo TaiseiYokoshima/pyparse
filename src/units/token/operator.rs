@@ -1,9 +1,11 @@
+use std::fmt::{Display, Formatter, Result};
+
 use strum_macros::{EnumString, EnumVariantNames};
 
 #[derive(Debug, EnumString, EnumVariantNames, PartialEq, Eq, Clone)]
 pub enum Operator {
     #[strum(serialize = "+")]
-    Plus, 
+    Plus,
 
     #[strum(serialize = "-")]
     Minus,
@@ -18,6 +20,17 @@ pub enum Operator {
     Modulus,
 }
 
+impl Display for Operator {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            Self::Plus => write!(f, "+"),
+            Self::Minus => write!(f, "-"),
+            Self::Star => write!(f, "*"),
+            Self::Slash => write!(f, "/"),
+            Self::Modulus => write!(f, "%"),
+        }
+    }
+}
 
 // impl Into<BinOperator> for Operator  {
 //     fn into(self) -> BinOperator {

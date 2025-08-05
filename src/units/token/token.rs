@@ -1,4 +1,5 @@
-use std::str::FromStr;
+use std::{fmt::{Display, Formatter, Result}, str::FromStr};
+
 use crate::units::{Keyword, Operator};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -14,8 +15,6 @@ pub enum Token {
     Number(Box<str>),
     Keyword(Keyword),
     Identifier(Box<str>),
-
-
     // String(Box<str>),
     // Quote,
 }
@@ -88,5 +87,21 @@ impl Token {
         };
 
         Self::parse_identifier(builder)
+    }
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            Self::Space => write!(f, "' '"),
+            // Self::Newline => write!(f, "'{:?}'", "\n"),
+            Self::Newline => write!(f, "Newline"),
+            Self::LParen => write!(f, "'('"),
+            Self::RParen => write!(f, "')'"),
+            Self::Keyword(keyword) => write!(f, "k'{}'", keyword),
+            Self::Operator(op) => write!(f, "Opr({})", op),
+            Self::Number(number) => write!(f, "Num({})", number),
+            Self::Identifier(id) => write!(f, "i'{}'", id),
+        }
     }
 }
