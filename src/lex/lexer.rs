@@ -4,18 +4,20 @@ use std::fmt::Write;
 
 use std::collections::VecDeque;
 
-use crate::errors::SyntaxError;
+use crate::{Source, SyntaxError};
 use crate::units::Token;
 
+
+
 pub struct Lexer<'src> {
-    src: &'src String,
+    src: &'src Source,
     start: usize,
     end: usize,
     tokens: VecDeque<Token<'src>>,
 }
 
 impl<'src> Lexer<'src> {
-    pub fn new(src: &'src String) -> Self {
+    pub fn new(src: &'src Source) -> Self {
         Self {
             src,
             start: 0,
@@ -32,7 +34,7 @@ impl<'src> Lexer<'src> {
         self.parse_token()
     }
     fn peek_char(&self) -> Option<char> {
-        self.src[self.end..].chars().next()
+        self.src.src[self.end..].chars().next()
     }
 
     fn parse_char(&mut self, peeked: char) -> Result<(), SyntaxError<'src>> {
@@ -61,7 +63,7 @@ impl<'src> Lexer<'src> {
                 self.parse_token()?;
                 Ok(())
             }
-            '_' | '0'..='9' | 'a'..='z' | 'A'..='Z' => {
+            '_' | '0'..='9' | 'a'..='z' | 'A'..='Z' | '.' => {
                 self.advance(peeked);
                 Ok(())
             }

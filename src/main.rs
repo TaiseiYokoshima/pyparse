@@ -1,14 +1,17 @@
+mod units;
 mod errors;
 
-
-mod lex;
-use lex::{Lexer};
-
-mod parser;
-use parser::Parser;
-
 mod start;
-mod units;
+mod lex;
+mod parser;
+
+
+pub use units::{Source, SrcSpan};
+
+pub use errors::syntax::SyntaxError;
+pub use lex::Lexer;
+pub use parser::Parser;
+
 
 fn main() {
     let src = {

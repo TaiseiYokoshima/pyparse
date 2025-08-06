@@ -1,2 +1,4 @@
-mod syntax;
-pub use syntax::SyntaxError;
+pub mod syntax;
+
+
+

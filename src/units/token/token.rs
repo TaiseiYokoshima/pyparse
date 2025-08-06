@@ -1,8 +1,9 @@
 use core::fmt;
 
-use crate::errors::SyntaxError;
+use crate::SyntaxError;
 use crate::units::{Keyword, Operator};
 
+use crate::errors::syntax as syn_errors;
 
 #[derive(Debug, PartialEq)]
 pub enum Token<'src> {
@@ -19,7 +20,30 @@ pub enum Token<'src> {
     Identifier(&'src str),
 }
 
+
+
+
 impl<'src> Token<'src> {
+    fn parse_number_literal(src: &str) -> Result<Token, SyntaxError<'src>> {
+        let mut found_dot = false;
+
+        for char in src.chars() {
+            if char == '.' {
+                if found_dot {
+                    return Err(syn_errors::NumberError::TooManyDigits);
+                };
+                found_dot = true;
+                continue;
+            };
+
+        };
+        
+
+
+
+    }
+
+
     pub fn new(src: &'src str) -> Result<Self, SyntaxError<'src>> {
         if let Some(operator) = Operator::new(src) {
             return Ok(Self::Operator(src, operator));
@@ -28,22 +52,20 @@ impl<'src> Token<'src> {
         let mut iter = src.chars();
         let first = iter.next().unwrap();
 
-        if first.is_numeric() {
-            match src.parse::<f32>() {
-                Ok(value) => return Ok(Token::Number(src, value)),
-                Err(f) => return Err(SyntaxError::NumberError(src, f.to_string())),
-            };
-        };
-
-        if first.is_alphabetic() || first == '_' {
+        let output = if first.is_numeric() || first == '.' {
+            Self::parse_number_literal(src)
+        } else if first.is_alphabetic() || first == '_' {
             for char in src.chars() {
                 if !char.is_alphanumeric() && char != '_' {
                     return Err(SyntaxError::IdentifierError(src));
-                }
-            }
+                };
+            };
+            Ok(Token::Identifier(src))
+        } else {
+            Err(SyntaxError::UnexpectedToken(src))
         };
 
-        return Ok(Token::Identifier(src));
+        output
     }
 }
 
