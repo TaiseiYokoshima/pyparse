@@ -1,5 +1,8 @@
-mod tokenizer;
-use tokenizer::{Lexer, Tokenizer};
+mod errors;
+
+
+mod lex;
+use lex::{Lexer};
 
 mod parser;
 use parser::Parser;
@@ -13,13 +16,18 @@ fn main() {
         start::load_src(&path)
     };
 
-    let tokenizer = Tokenizer::new(src);
-    let lexer = tokenizer.tokenize();
+    let mut lexer = Lexer::new(&src);
+    let result = lexer.tokenize();
 
-    println!("\n\n\n{}", lexer);
+    match result {
+        Ok(_) => println!("\n\n\n{}", lexer),
+        Err(e) => println!("{:?}", e),
 
-    let parser = Parser::new(lexer);
-    let expr = parser.parse();
+    };
 
-    println!("\n\n\nexpr:\n{}", expr);
+    // println!("\n\n\n{:?}", result);
+
+    // let parser = Parser::new(lexer);
+    // let expr = parser.parse();
+    // println!("\n\n\nexpr:\n{}", expr);
 }

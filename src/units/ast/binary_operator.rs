@@ -9,6 +9,7 @@ pub enum BinOpr {
     Div,
     Mod,
     Pow,
+    Flor,
 }
 
 impl Display for BinOpr {
@@ -20,6 +21,7 @@ impl Display for BinOpr {
             Self::Div => "/",
             Self::Mod => "%",
             Self::Pow => "**",
+            Self::Flor => "//",
         };
 
         write!(f, "{}", s)
@@ -29,11 +31,13 @@ impl Display for BinOpr {
 impl From<Operator> for BinOpr {
     fn from(op: Operator) -> BinOpr {
         match op {
-            Operator::Plus => BinOpr::Add,
-            Operator::Minus => BinOpr::Sub,
-            Operator::Star => BinOpr::Mul,
-            Operator::Slash => BinOpr::Div,
-            Operator::Modulus => BinOpr::Mod,
+            Operator::Add => BinOpr::Add,
+            Operator::Sub => BinOpr::Sub,
+            Operator::Mul => BinOpr::Mul,
+            Operator::Div => BinOpr::Div,
+            Operator::Mod => BinOpr::Mod,
+            Operator::Pow => BinOpr::Pow,
+            Operator::Flo => BinOpr::Flor,
         }
     }
 }

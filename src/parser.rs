@@ -1,77 +1,77 @@
 use std::{process::exit, usize};
 
-use crate::{tokenizer::Lexer, units::{bp, BinOpn, Expr, Literal, Token, BP}};
+use crate::{lex::Lexer, units::{bp, BinOpn, Expr, Literal, Token, BP}};
 use bp::get_infix;
 
-pub struct Parser {
-    lexer: Lexer,
-    current: Vec<Token>,
+pub struct Parser<'src> {
+    lexer: Lexer<'src>,
+    current: Vec<Token<'src>>,
 }
 
-impl Parser {
-    pub fn new(tokens: Lexer) -> Self {
+impl<'src> Parser<'src> {
+    pub fn new(tokens: Lexer<'src>) -> Self {
         Parser {
             lexer: tokens,
             current: vec![],
         }
     }
 
-    fn next(&mut self) -> Token {
-        self.lexer.next()
-    }
+    // fn next(&mut self) -> Token {
+    //     self.lexer.next()
+    // }
 
-    fn peek(&mut self) -> &Token {
-        self.lexer.peek()
-    }
+    // fn peek(&mut self) -> &Token {
+    //     self.lexer.peek()
+    // }
 
-    fn peek_at(&mut self, index: usize) -> &Token {
-        self.lexer.peek_at(index)
-    }
-
-    fn pratt_parse(&mut self, min_bp: BP) -> Expr {
-        let mut lhs = match self.next() {
-            Token::Number(number) => Expr::Literal(Literal::Number(number)),
-            Token::LParen => {
-                let expr = self.pratt_parse(min_bp);
-                if self.peek() != &Token::RParen {
-                    eprint!("Error: Parser Could not find the closing parenthesis");
-                    exit(1);
-                };
-                self.next();
-                expr
-            },
-            token => {
-                eprint!("Error: Parser did not get a number");
-                exit(1);
-            }
-        };
-
-        loop {
-            let op = match self.peek() {
-                Token::Newline => break,
-                Token::RParen => break,
-                Token::Operator(operator) => operator.into(),
-                token => {
-                    eprint!("Error: Parser did not get a newline or an operator");
-                    exit(1);
-                }
-            };
-
-            let (l_bp, r_bp) = get_infix(op);
-            let op = op.clone().into();
-
-            if min_bp > l_bp {
-                break;
-            };
-            self.next();
-
-            let rhs = self.pratt_parse(r_bp);
-            lhs = Expr::BinOp(Box::new(BinOpn::new(op, lhs, rhs)));
-        }
-        lhs
-    }
-
-    pub fn parse(mut self) -> Expr {
-        self.pratt_parse(0.0)
-    }
+//     fn peek_at(&mut self, index: usize) -> &Token {
+//         self.lexer.peek_at(index)
+//     }
+//
+//     fn pratt_parse(&mut self, min_bp: BP) -> Expr {
+//         let mut lhs = match self.next() {
+//             Token::Number(number) => Expr::Literal(Literal::Number(number)),
+//             Token::LParen => {
+//                 let expr = self.pratt_parse(min_bp);
+//                 if self.peek() != &Token::RParen {
+//                     eprint!("Error: Parser Could not find the closing parenthesis");
+//                     exit(1);
+//                 };
+//                 self.next();
+//                 expr
+//             },
+//             token => {
+//                 eprint!("Error: Parser did not get a number");
+//                 exit(1);
+//             }
+//         };
+//
+//         loop {
+//             let op = match self.peek() {
+//                 Token::Newline => break,
+//                 Token::RParen => break,
+//                 Token::Operator(operator) => operator.into(),
+//                 token => {
+//                     eprint!("Error: Parser did not get a newline or an operator");
+//                     exit(1);
+//                 }
+//             };
+//
+//             let (l_bp, r_bp) = get_infix(op);
+//             let op = op.clone().into();
+//
+//             if min_bp > l_bp {
+//                 break;
+//             };
+//             self.next();
+//
+//             let rhs = self.pratt_parse(r_bp);
+//             lhs = Expr::BinOp(Box::new(BinOpn::new(op, lhs, rhs)));
+//         }
+//         lhs
+//     }
+//
+//     pub fn parse(mut self) -> Expr {
+//         self.pratt_parse(0.0)
+    // }
 }

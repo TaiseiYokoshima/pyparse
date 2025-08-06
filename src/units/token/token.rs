@@ -1,107 +1,64 @@
-use std::{fmt::{Display, Formatter, Result}, str::FromStr};
+use core::fmt;
 
+use crate::errors::SyntaxError;
 use crate::units::{Keyword, Operator};
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum Token {
-    Space,
-    Newline,
 
-    LParen,
-    RParen,
+#[derive(Debug, PartialEq)]
+pub enum Token<'src> {
+    Space(&'src str),
+    Newline(&'src str),
 
-    Operator(Operator),
+    LParen(&'src str),
+    RParen(&'src str),
 
-    Number(Box<str>),
-    Keyword(Keyword),
-    Identifier(Box<str>),
-    // String(Box<str>),
-    // Quote,
+    Operator(&'src str, Operator),
+
+    Number(&'src str, f32),
+    Keyword(&'src str, Keyword),
+    Identifier(&'src str),
 }
 
-fn take_builder(builder: &mut Box<String>) -> Box<str> {
-    use std::mem;
-    mem::take(&mut *builder).into_boxed_str()
-}
-
-impl Token {
-    fn parse_number(builder: &mut Box<String>) -> Self {
-        use std::process::exit;
-        if builder.chars().any(|c| !c.is_numeric()) {
-            eprintln!("Error: Tokenizer got an unsupported token: {}", builder);
-            eprintln!("Number literal cannot contain non numeric characters");
-            exit(1);
+impl<'src> Token<'src> {
+    pub fn new(src: &'src str) -> Result<Self, SyntaxError<'src>> {
+        if let Some(operator) = Operator::new(src) {
+            return Ok(Self::Operator(src, operator));
         };
 
-        let number_str = take_builder(builder);
-        Token::Number(number_str)
-    }
+        let mut iter = src.chars();
+        let first = iter.next().unwrap();
 
-    fn parse_keyword(builder: &mut Box<String>) -> Option<Self> {
-        if let Ok(keyword) = Keyword::from_str(builder.as_str()) {
-            builder.clear();
-            return Some(Token::Keyword(keyword));
+        if first.is_numeric() {
+            match src.parse::<f32>() {
+                Ok(value) => return Ok(Token::Number(src, value)),
+                Err(f) => return Err(SyntaxError::NumberError(src, f.to_string())),
+            };
         };
 
-        None
-    }
-
-    fn parse_identifier(builder: &mut Box<String>) -> Self {
-        use std::process::exit;
-        if builder.chars().any(|c| !c.is_alphanumeric() && c != '_') {
-            eprintln!("Error: Tokenizer got an unsupported token: {}", builder);
-            eprintln!(
-                "Identifier must start with a letter and can only contain alphanumeric and underscore characters"
-            );
-            exit(1);
+        if first.is_alphabetic() || first == '_' {
+            for char in src.chars() {
+                if !char.is_alphanumeric() && char != '_' {
+                    return Err(SyntaxError::IdentifierError(src));
+                }
+            }
         };
 
-        let identifier_str = take_builder(builder);
-        Token::Identifier(identifier_str)
-    }
-
-    pub fn match_deliminiter(char: &char) -> Option<Self> {
-        use std::str::FromStr;
-        match char {
-            ' ' => return Some(Self::Space),
-            '(' => return Some(Self::LParen),
-            ')' => return Some(Self::RParen),
-            '\n' => return Some(Self::Newline),
-            _ => (),
-        };
-
-        if let Ok(operator) = Operator::from_str(char.to_string().as_str()) {
-            return Some(Self::Operator(operator));
-        };
-
-        None
-    }
-
-    pub fn match_token(builder: &mut Box<String>) -> Self {
-        if builder.chars().next().unwrap().is_numeric() {
-            return Self::parse_number(builder);
-        };
-
-        if let Some(token) = Self::parse_keyword(builder) {
-            return token;
-        };
-
-        Self::parse_identifier(builder)
+        return Ok(Token::Identifier(src));
     }
 }
 
-impl Display for Token {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+
+impl<'src> fmt::Display for Token<'src> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Space => write!(f, "' '"),
-            // Self::Newline => write!(f, "'{:?}'", "\n"),
-            Self::Newline => write!(f, "Newline"),
-            Self::LParen => write!(f, "LParen"),
-            Self::RParen => write!(f, "RParen"),
-            Self::Keyword(keyword) => write!(f, "k'{}'", keyword),
-            Self::Operator(op) => write!(f, "Opr({})", op),
-            Self::Number(number) => write!(f, "Num({})", number),
-            Self::Identifier(id) => write!(f, "i'{}'", id),
+            Self::LParen(_) => write!(f, "LParen"),
+            Self::RParen(_) => write!(f, "RParen"),
+            Self::Operator(_, operator) => write!(f, "Opr({})", operator),
+            Self::Number(_, number) => write!(f, "Num({})", number),
+            Self::Space(_) => write!(f, "Space"),
+            Self::Newline(_) => write!(f, "Newline"),
+            Self::Identifier(str) => write!(f, "Idn({})", str),
+            Self::Keyword(_, keyword) => write!(f, "Key({})", keyword),
         }
     }
 }

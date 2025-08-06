@@ -16,10 +16,10 @@ pub mod bp {
 
     pub fn get_infix(op: &Operator) -> (BP, BP) {
         match op {
-            Operator::Plus => ADD,
-            Operator::Minus => SUB,
-            Operator::Star => MUL,
-            Operator::Slash => DIV,
+            Operator::Add => ADD,
+            Operator::Sub => SUB,
+            Operator::Mul => MUL,
+            Operator::Div => DIV,
             _ => panic!("you gave the wrong one"),
         }
     }
