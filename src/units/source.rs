@@ -1,4 +1,5 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque};
+use std::ops::{Index, Range};
 
 pub struct Source {
     src: String,
@@ -21,3 +22,12 @@ impl Source {
         self.lines.push_back(byte_offset);
     }
 }
+
+
+// impl<'src> Index<Range<usize>> for Source {
+//     type Output = &'src str;
+//
+//     fn index(&self, index: Range<usize>) -> &'src Self::Output {
+//         
+//     }
+// }

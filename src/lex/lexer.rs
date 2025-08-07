@@ -5,7 +5,7 @@ use std::fmt::Write;
 use std::collections::VecDeque;
 
 use crate::{Source, SyntaxError};
-use crate::units::Token;
+use crate::units::TokenKind;
 
 
 
@@ -13,7 +13,7 @@ pub struct Lexer<'src> {
     src: &'src Source,
     start: usize,
     end: usize,
-    tokens: VecDeque<Token<'src>>,
+    tokens: VecDeque<TokenKind<'src>>,
 }
 
 impl<'src> Lexer<'src> {
@@ -77,7 +77,7 @@ impl<'src> Lexer<'src> {
         }
 
         let str = self.current_str();
-        let token = Token::new(str)?;
+        let token = TokenKind::new(str)?;
         self.tokens.push_back(token);
         self.reset_builder();
         Ok(())

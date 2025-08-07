@@ -1,11 +1,11 @@
 use std::{process::exit, usize};
 
-use crate::{lex::Lexer, units::{bp, BinOpn, Expr, Literal, Token, BP}};
+use crate::{lex::Lexer, units::{bp, BinOpn, Expr, Literal, TokenKind, BP}};
 use bp::get_infix;
 
 pub struct Parser<'src> {
     lexer: Lexer<'src>,
-    current: Vec<Token<'src>>,
+    current: Vec<TokenKind<'src>>,
 }
 
 impl<'src> Parser<'src> {

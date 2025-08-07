@@ -4,4 +4,4 @@ mod token;
 
 pub use keyword::Keyword;
 pub use operator::Operator;
-pub use token::Token;
+pub use token::TokenKind;
