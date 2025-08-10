@@ -1,17 +1,12 @@
 mod units;
-mod errors;
-
 mod start;
-mod lex;
-mod parser;
+// mod errors;
+
+// mod lex;
+// mod parser;
 
 
-pub use units::{Source, SrcSpan};
-
-pub use errors::syntax::SyntaxError;
-pub use lex::Lexer;
-pub use parser::Parser;
-
+pub use units::Cursor;
 
 fn main() {
     let src = {
@@ -19,18 +14,14 @@ fn main() {
         start::load_src(&path)
     };
 
-    let mut lexer = Lexer::new(&src);
-    let result = lexer.tokenize();
+    
+    let debug = true;
+    // let debug = false;
+    let cursor = Cursor::new(&src);
+    let tokens = cursor.tokenize(debug);
 
-    match result {
-        Ok(_) => println!("\n\n\n{}", lexer),
-        Err(e) => println!("{:?}", e),
 
-    };
+    println!("\n\n");
+    println!("{}", tokens);
 
-    // println!("\n\n\n{:?}", result);
-
-    // let parser = Parser::new(lexer);
-    // let expr = parser.parse();
-    // println!("\n\n\nexpr:\n{}", expr);
 }

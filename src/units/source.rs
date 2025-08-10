@@ -1,15 +1,15 @@
-use std::{collections::VecDeque};
-use std::ops::{Index, Range};
+use std::collections::VecDeque;
+use std::ops::{Index, Range, RangeFrom};
 
 pub struct Source {
-    src: String,
-    lines: VecDeque<usize>,
+    pub src: String,
+    pub lines: VecDeque<usize>,
     // current_line: usize,
     // current_column: usize,
 }
 
 impl Source {
-    fn new(src: String) -> Self {
+    pub fn new(src: String) -> Self {
         Self {
             src,
             lines: VecDeque::default(),
@@ -23,11 +23,27 @@ impl Source {
     }
 }
 
+impl AsRef<String> for Source {
+    fn as_ref(&self) -> &String {
+        &self.src
+    }
+}
 
-// impl<'src> Index<Range<usize>> for Source {
-//     type Output = &'src str;
-//
-//     fn index(&self, index: Range<usize>) -> &'src Self::Output {
-//         
-//     }
-// }
+impl Index<Range<usize>> for Source {
+    type Output = str;
+
+    fn index(&self, index: Range<usize>) -> &Self::Output {
+        &self.src[index]
+    }
+}
+
+impl Index<RangeFrom<usize>> for Source {
+    type Output = str;
+
+    fn index<'src>(&'src self, index: RangeFrom<usize>) -> &'src Self::Output {
+        let string = &self.src;
+        &string[index]
+    }
+}
+
+
