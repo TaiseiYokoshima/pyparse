@@ -1,143 +1,142 @@
-use std::fmt;
-use std::fmt::Write;
-
 use std::collections::VecDeque;
+use std::str::Chars;
 
-use crate::errors::syntax::ErrorKind;
-use crate::units::{Token, TokenKind};
-use crate::{Span, SyntaxError};
-
-use crate::units::{ColumnRange, LineByteRange, TokenSpan};
+use crate::lex::{Token, TokenKind};
 
 pub struct Lexer<'src> {
     pub src: &'src str,
-    pub span: TokenSpan,
-    pub line_num: usize,
-    pub line_range: LineByteRange,
-    line_map: Vec<LineByteRange>,
-    tokens: VecDeque<Token>,
+    pub tokens: VecDeque<Token>,
+    it: Chars<'src>,
+    temp_char: Option<char>,
+    debug: bool,
 }
 
 impl<'src> Lexer<'src> {
-    pub fn new(src: &'src str) -> Self {
+    pub fn new(src: &'src str) -> Lexer<'src> {
+        let it = src.chars();
+        let tokens = VecDeque::default();
+        let temp_char = None;
+
         Self {
             src,
-            span: TokenSpan::default(),
-            line_num: 1,
-            line_range: LineByteRange::default(),
-            tokens: VecDeque::default(),
-            line_map: vec![],
+            it,
+            tokens,
+            temp_char,
+            debug: false,
         }
     }
 
-    pub fn tokenize(&mut self) -> Result<(), SyntaxError> {
-        while let Some(char) = self.peek_char() {
-            self.parse_char(char)?;
-        }
-
-        self.parse_token()
-    }
-
-    fn peek_char(&self) -> Option<char> {
-        self.src[self.span.end..].chars().next()
+    #[inline]
+    fn push(&mut self, kind: TokenKind, len: usize) {
+        let token = Token::new(kind, len);
+        if self.debug {
+            println!("Token: {}", &token)
+        };
+        self.tokens.push_back(token);
     }
 
 
-    fn parse_num(&mut self, peeked: char) -> Result<(), SyntaxError> {
-
-
+    #[inline]
+    fn next(&mut self) -> Option<char> {
+        if let Some(temp_char) = self.temp_char {
+            if self.debug { println!("got temp: {}", temp_char) };;
+            self.temp_char = None;
+            return Some(temp_char);
+        };
+        
+        if self.debug { println!("going to consuem next char") };
+        self.it.next()
     }
 
-
-    fn parse_char(&mut self, peeked: char) -> Result<(), SyntaxError> {
-        let length = peeked.len_utf8();
-        match peeked {
-            ' ' => {
-                self.parse_token()?;
-                self.skip(length);
-                Ok(())
-            }
-
-            '\n' => {
-                self.parse_token()?;
-                self.consume_char(length);
-                self.parse_token()?;
-                self.matched_newline();
-                Ok(())
-            }
-
-            '+' | '-' | '%' => {
-                self.parse_token()?;
-                self.consume_char(length);
-                self.parse_token()?;
-                Ok(())
-            }
-
-            '*' | '/' => {
-                self.parse_token()?;
-                self.consume_char(length);
-
-                if let Some(second_peeked) = self.peek_second() {
-                    if peeked == second_peeked {
-                        self.consume_char(length);
-                    }
-                };
-                self.parse_token()?;
-                Ok(())
-            }
-
-            '.' => {
-                
-            }
-
-            '_' | '0'..='9' | 'a'..='z' | 'A'..='Z' => {
-                self.consume_char(length);
-                Ok(())
-            }
-
-            _ => Err(todo!()),
+    #[inline]
+    fn set_temp(&mut self, temp_char: char) {
+        self.temp_char = Some(temp_char);
+        if self.debug {
+            println!("set temp: {:?}", temp_char)
         }
     }
 
-    fn parse_token(&mut self) -> Result<(), SyntaxError> {
-        let span = &mut self.span;
-        let start = span.start;
-        let end = span.end;
+    fn parse_ident(&mut self) {
+        let mut len = 1;
+        while let Some(char) = self.next() {
+            match char {
+                'a'..='z' | 'A'..='Z' | '_' | '0'..='9' => len += 1,
+                '.' => {
+                    self.push(TokenKind::Ident, len);
+                    self.push(TokenKind::Dot, 1);
+                    return;
+                }
+                _ => {
+                    self.push(TokenKind::Ident, len);
+                    self.set_temp(char);
+                    return;
+                }
+            };
+        }
+    }
 
-        if start == end {
-            return Ok(());
+    fn parse_number(&mut self, found_dot: bool) {
+        let mut len = if found_dot { 2 } else { 1 };
+        while let Some(char) = self.next() {
+            match char {
+                '0'..='9' | '.' | '_' | 'a'..='z' | 'A'..='Z' => len += 1,
+                _ => {
+                    self.push(TokenKind::Number, len);
+                    self.set_temp(char);
+                    return;
+                }
+            };
+        }
+    }
+
+    fn parse_whitespace(&mut self) {
+        let mut len = 1;
+
+        while let Some(char) = self.next() {
+            if char != ' ' {
+                self.push(TokenKind::WhiteSpace, len);
+                self.set_temp(char);
+                return;
+            };
+            len += 1;
+        }
+    }
+
+    fn parse_char(&mut self, first: char) {
+        match first {
+            ' ' => self.parse_whitespace(),
+            '\n' => self.push(TokenKind::Newline, 1),
+            '+' => self.push(TokenKind::Plus, 1),
+            '-' => self.push(TokenKind::Minus, 1),
+            '*' => self.push(TokenKind::Star, 1),
+            '/' => self.push(TokenKind::Slash, 1),
+            '%' => self.push(TokenKind::Percent, 1),
+            '(' => self.push(TokenKind::OpenParen, 1),
+            ')' => self.push(TokenKind::CloseParen, 1),
+            '.' => 'arm: {
+                if let Some(char) = self.next() {
+                    if char.is_numeric() {
+                        self.parse_number(true);
+                        break 'arm;
+                    } else {
+                        self.push(TokenKind::Dot, 1);
+                        self.set_temp(char);
+                    };
+                }
+            }
+            '0'..='9' => self.parse_number(false),
+            'a'..='z' | 'A'..='Z' | '_' => self.parse_ident(),
+            _ => self.push(TokenKind::InvalidChar, first.len_utf8()),
+        };
+    }
+
+    pub fn tokenize<Output: From<Lexer<'src>>>(mut self, debug: bool) -> Output {
+        self.debug = debug;
+
+        while let Some(char) = self.next() {
+            self.parse_char(char);
         };
 
-        let src = self.src;
-
-        let kind = TokenKind::new(src, span)?;
-
-        let span = span.parsed_token();
-        let token = Token::new(span, kind);
-
-        self.tokens.push_back(token);
-        Ok(())
-    }
-
-    fn skip(&mut self, offset: usize) {
-        self.span.skip(offset);
-    }
-
-    fn consume_char(&mut self, offset: usize) {
-        self.span.consume_char(offset);
-    }
-
-    fn matched_newline(&mut self) {
-        let offset = self.span.end;
-        let line_range = self.line_range.parsed_newline(offset);
-        self.line_map.push(line_range);
-        self.line_num+=1;
-    }
-
-    fn peek_first
-
-
-    fn current_peek(&'src self, peeked: char) -> &'src str {
-        &self.src[self.end..self.end + peeked.len_utf8()]
+        Output::from(self)
     }
 }

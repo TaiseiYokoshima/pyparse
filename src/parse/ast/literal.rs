@@ -1,9 +1,13 @@
 use std::fmt::{Display, Formatter, self};
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub enum Literal {
-    Number(Box<str>),
+    Number(f32),
 }
+
+// impl Eq for Literal {
+//
+// }
 
 
 impl Display for Literal {

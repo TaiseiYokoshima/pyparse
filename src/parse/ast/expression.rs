@@ -1,12 +1,11 @@
+use super::{BinOpn, Ident, Literal};
 use std::fmt::{Display, Formatter, Result};
 
-use crate::units::{BinOpn, Ident, Literal};
-
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub enum Expr {
     // Assign(Box<Assign>),
     BinOp(Box<BinOpn>),
-    Ident(Ident),
+    Ident(Box<str>),
     Literal(Literal),
 }
 

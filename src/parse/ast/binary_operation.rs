@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use super::BinOpr;
 use super::Expr;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub struct BinOpn {
     op: BinOpr,
     left: Expr,

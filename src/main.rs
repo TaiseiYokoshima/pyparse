@@ -1,27 +1,28 @@
-mod units;
+use parse::Parser;
+
+pub mod lex;
+pub mod parse;
 mod start;
-// mod errors;
-
-// mod lex;
-// mod parser;
-
-
-pub use units::Cursor;
 
 fn main() {
+    use lex::{Lexer, TokenStream};
+
     let src = {
         let path = start::parse_path();
         start::load_src(&path)
     };
 
-    
-    let debug = true;
-    // let debug = false;
-    let cursor = Cursor::new(&src);
-    let tokens = cursor.tokenize(debug);
+    let debug = false;
+    // let debug = true;
+    let cursor = Lexer::new(&src);
+    let tokens: TokenStream = cursor.tokenize(debug);
 
-
-    println!("\n\n");
     println!("{}", tokens);
+
+
+    let mut parser = Parser::new(tokens);
+
+    println!("{:?}", parser.parse());
+
 
 }
