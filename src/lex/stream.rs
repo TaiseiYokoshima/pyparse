@@ -45,7 +45,7 @@ impl<'src> fmt::Display for TokenStream<'src> {
 
         let mut index = 0;
         for token in &self.stream {
-            let len = token.len;
+            let len = token.size;
 
             write!(s, " ")?;
             match token.kind {

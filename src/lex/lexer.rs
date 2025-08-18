@@ -27,8 +27,8 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline]
-    fn push(&mut self, kind: TokenKind, len: usize) {
-        let token = Token::new(kind, len);
+    fn push(&mut self, kind: TokenKind, size: usize, count: usize) {
+        let token = Token::new(kind, size, count);
         if self.debug {
             println!("Token: {}", &token)
         };
@@ -57,76 +57,96 @@ impl<'src> Lexer<'src> {
     }
 
     fn parse_ident(&mut self) {
-        let mut len = 1;
+        let mut size = 1;
+        let mut count = 1;
         while let Some(char) = self.next() {
             match char {
-                'a'..='z' | 'A'..='Z' | '_' | '0'..='9' => len += 1,
+                'a'..='z' | 'A'..='Z' | '_' | '0'..='9' => { 
+                    size += 1; 
+                    count += 1;
+                },
                 '.' => {
-                    self.push(TokenKind::Ident, len);
-                    self.push(TokenKind::Dot, 1);
+                    self.push(TokenKind::Ident, size, count);
+                    self.push(TokenKind::Dot, 1, 1);
                     return;
-                }
-                _ => {
-                    self.push(TokenKind::Ident, len);
+                },
+
+                '\n' | ' ' | '(' | ')' | '+' | '-' | '*' | '/' | '%' => {
+                    self.push(TokenKind::Ident, size, count);
                     self.set_temp(char);
                     return;
-                }
+                },
+                _ => {
+                    size += char.len_utf8();
+                    count += 1;
+                },
             };
         }
     }
 
     fn parse_number(&mut self, found_dot: bool) {
-        let mut len = if found_dot { 2 } else { 1 };
+        let (mut size, mut count) = if found_dot { (2, 2) } else { (1, 1) };
         while let Some(char) = self.next() {
             match char {
-                '0'..='9' | '.' | '_' | 'a'..='z' | 'A'..='Z' => len += 1,
-                _ => {
-                    self.push(TokenKind::Number, len);
+                '0'..='9' | '.' | '_' | 'a'..='z' | 'A'..='Z' => {
+                    size += 1;
+                    count += 1;
+                },
+                '\n' | ' ' | '(' | ')' | '+' | '-' | '*' | '/' | '%' => {
+                    self.push(TokenKind::Number, size, count);
                     self.set_temp(char);
                     return;
+                },
+                _ => {
+                    size += char.len_utf8();
+                    count += 1;
                 }
             };
-        }
+        };
+
+        self.push(TokenKind::Number, size, count);
     }
 
     fn parse_whitespace(&mut self) {
-        let mut len = 1;
+        let mut size = 1;
+        let mut count = 1;
 
         while let Some(char) = self.next() {
             if char != ' ' {
-                self.push(TokenKind::WhiteSpace, len);
+                self.push(TokenKind::WhiteSpace, size, count);
                 self.set_temp(char);
                 return;
             };
-            len += 1;
+            size += 1;
+            count += 1;
         }
     }
 
     fn parse_char(&mut self, first: char) {
         match first {
             ' ' => self.parse_whitespace(),
-            '\n' => self.push(TokenKind::Newline, 1),
-            '+' => self.push(TokenKind::Plus, 1),
-            '-' => self.push(TokenKind::Minus, 1),
-            '*' => self.push(TokenKind::Star, 1),
-            '/' => self.push(TokenKind::Slash, 1),
-            '%' => self.push(TokenKind::Percent, 1),
-            '(' => self.push(TokenKind::OpenParen, 1),
-            ')' => self.push(TokenKind::CloseParen, 1),
+            '\n' => self.push(TokenKind::Newline, 1, 1),
+            '+' => self.push(TokenKind::Plus, 1, 1),
+            '-' => self.push(TokenKind::Minus, 1, 1),
+            '*' => self.push(TokenKind::Star, 1, 1),
+            '/' => self.push(TokenKind::Slash, 1, 1),
+            '%' => self.push(TokenKind::Percent, 1, 1),
+            '(' => self.push(TokenKind::OpenParen, 1, 1),
+            ')' => self.push(TokenKind::CloseParen, 1, 1),
             '.' => 'arm: {
                 if let Some(char) = self.next() {
                     if char.is_numeric() {
                         self.parse_number(true);
                         break 'arm;
                     } else {
-                        self.push(TokenKind::Dot, 1);
+                        self.push(TokenKind::Dot, 1, 1);
                         self.set_temp(char);
                     };
                 }
             }
             '0'..='9' => self.parse_number(false),
             'a'..='z' | 'A'..='Z' | '_' => self.parse_ident(),
-            _ => self.push(TokenKind::InvalidChar, first.len_utf8()),
+            _ => self.push(TokenKind::InvalidChar, first.len_utf8(), 1),
         };
     }
 

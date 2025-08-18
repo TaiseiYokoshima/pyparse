@@ -3,18 +3,19 @@ use std::fmt;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Token {
     pub kind: TokenKind,
-    pub len: usize,
+    pub size: usize,
+    pub count: usize,
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, len: usize) -> Self {
-        Self { kind, len }
+    pub fn new(kind: TokenKind, size: usize, count: usize) -> Self {
+        Self { kind, size, count }
     }
 }
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let size = self.len;
+        let size = self.size;
 
         match self.kind {
             TokenKind::Dot => write!(f, "'.' : {}", size),

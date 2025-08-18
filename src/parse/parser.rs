@@ -1,9 +1,6 @@
 use std::collections::VecDeque;
-
 use super::ast::{BP, BinOpn, BinOpr, Expr, Literal};
 use crate::lex::{Lexer, Token, TokenKind, TokenStream};
-
-
 
 #[derive(Debug)]
 pub enum NumberError {
@@ -12,12 +9,10 @@ pub enum NumberError {
     NotDigit(usize),
 }
 
-
 #[derive(Debug)]
 pub enum IdentError {
     InvalidStart,
-    InvalidChar(usize)
-
+    InvalidChar(usize),
 }
 
 #[derive(Debug)]
@@ -27,14 +22,15 @@ pub enum ErrorKind {
     ExpectedCloseParen,
 
     NumberError(NumberError),
-    IdentError(IdentError)
+    IdentError(IdentError),
 }
 
 #[derive(Debug)]
 pub struct ParserError {
     error_kind: ErrorKind,
-    start: usize,
-    token_set: Option<(TokenKind, usize)>,
+    line: usize,
+    column_start: usize,
+    token_set: Option<TokenKind>,
 }
 
 pub struct Parser<'src> {
@@ -42,10 +38,22 @@ pub struct Parser<'src> {
     pub tokens: VecDeque<Token>,
     temp: Option<Token>,
     index: usize,
-    // errors: VecDeque<ParserError>,
+    
+    current_column: usize,
+    current_line_number: usize,
+    current_line_start_index: usize,
+
+    line_indices: VecDeque<(usize, usize)>,
 }
 
 impl<'src> Parser<'src> {
+
+   // fn error(&self, kind: ErrorKind, token_op: Option<Token>) -> ParserError {
+   // }
+
+
+
+
     pub fn new<T: Into<(&'src str, VecDeque<Token>)>>(input: T) -> Self {
         let (src, tokens) = input.into();
         assert!(!tokens.is_empty());
@@ -55,6 +63,10 @@ impl<'src> Parser<'src> {
             tokens,
             index: 0,
             temp: None,
+            current_line_number: 0,
+            current_line_start_index: 0,
+            current_column: 0,
+            line_indices: VecDeque::new(),
         }
     }
 
@@ -70,18 +82,29 @@ impl<'src> Parser<'src> {
 
     #[inline(always)]
     fn consume_next(&mut self) -> Option<Token> {
-
         let token = loop {
             let token = self.tokens.pop_front()?;
-            self.index += token.len;
+            self.index += token.size;
+            self.current_column += token.count;
 
             if token.kind != TokenKind::WhiteSpace {
                 break token;
             };
-
         };
 
         Some(token)
+    }
+
+
+
+    #[inline(always)]
+    fn flush_newlines(&mut self) {
+        while let Some(token) = self.consume_next() {
+            if token.kind != TokenKind::Newline {
+                self.set_temp(token);
+                return;
+            };
+        }
     }
 
     #[inline(always)]
@@ -104,14 +127,8 @@ impl<'src> Parser<'src> {
     fn str(&self, token: &Token) -> &'src str {
         let src = self.src;
         let index = self.index;
-        &src[index - token.len..index]
+        &src[index - token.size..index]
     }
-
-    // #[inline(always)]
-    // fn push_get_err(&mut self, error: ParserError) -> &ParserError {
-    //     self.errors.push_back(error);
-    //     self.errors.get(self.errors.len() - 1).expect("I pushed an error just now but got none")
-    // }
 
     fn match_operator(&mut self, token_kind: TokenKind) -> Option<BinOpr> {
         match token_kind {
@@ -155,7 +172,7 @@ impl<'src> Parser<'src> {
                 '.' => {
                     if found_dot {
                         return Err(ParserError {
-                            start: self.index - token.len,
+                            start: self.index - token.size,
                             error_kind: ErrorKind::NumberError(NumberError::MultipleDots(count)),
                             token_set: Some((token.kind, self.index)),
                         });
@@ -167,24 +184,24 @@ impl<'src> Parser<'src> {
                 _ => {
                     return Err(ParserError {
                         error_kind: ErrorKind::NumberError(NumberError::NotDigit(count)),
-                        start: self.index - token.len,
+                        start: self.index - token.size,
                         token_set: Some((token.kind, self.index)),
                     });
                 }
             };
             count += 1;
-        };
+        }
 
-
-        let float= string.parse::<f32>().expect("Should not have errored here, should have not been empty, nor wrong literal");
+        let float = string
+            .parse::<f32>()
+            .expect("Should not have errored here, should have not been empty, nor wrong literal");
 
         let output = if float.is_infinite() {
             Err(ParserError {
                 error_kind: ErrorKind::NumberError(NumberError::TooManyDigits),
-                start: self.index - token.len,
+                start: self.index - token.size,
                 token_set: Some((token.kind, self.index)),
             })
-
         } else {
             Ok(Literal::Number(float))
         };
@@ -201,8 +218,8 @@ impl<'src> Parser<'src> {
         if first.is_numeric() || (first != '_' && !first.is_alphabetic()) {
             return Err(ParserError {
                 error_kind: ErrorKind::IdentError(IdentError::InvalidStart),
-                start: self.index - token.len,
-                token_set: Some((token.kind, self.index))
+                start: self.index - token.size,
+                token_set: Some((token.kind, self.index)),
             });
         };
 
@@ -212,20 +229,16 @@ impl<'src> Parser<'src> {
             if !char.is_ascii_alphanumeric() && char != '_' {
                 return Err(ParserError {
                     error_kind: ErrorKind::IdentError(IdentError::InvalidStart),
-                    start: self.index - token.len,
-                    token_set: Some((token.kind, self.index))
+                    start: self.index - token.size,
+                    token_set: Some((token.kind, self.index)),
                 });
             };
 
             count += 1;
-        };
-
+        }
 
         Ok(string.to_string().into_boxed_str())
     }
-
-
-
 
     fn pratt_parse(&mut self, min_bp: BP) -> Result<Option<Expr>, ParserError> {
         let token = match self.next() {
@@ -234,7 +247,13 @@ impl<'src> Parser<'src> {
         };
 
         let mut lhs = match token.kind {
-            TokenKind::Newline => return Ok(None),
+            TokenKind::Newline => {
+                self.line_indices.push_back((self.current_line_start_index, self.index - 1));
+                self.current_line_number += 1;
+                self.current_column = 0;
+                self.current_line_start_index = self.index;
+                return Ok(None);
+            },
             TokenKind::Number => Expr::Literal(self.parse_number(&token)?),
             TokenKind::Ident => Expr::Ident(self.parse_ident(&token)?),
             TokenKind::OpenParen => {
@@ -260,7 +279,7 @@ impl<'src> Parser<'src> {
                         if token.kind != TokenKind::CloseParen {
                             let error = ParserError {
                                 error_kind: ErrorKind::ExpectedCloseParen,
-                                start: self.index - token.len,
+                                start: self.index - token.size,
                                 token_set: Some((token.kind, self.index)),
                             };
                             return Err(error);
@@ -282,7 +301,7 @@ impl<'src> Parser<'src> {
             _ => {
                 let error = ParserError {
                     error_kind: ErrorKind::ExpectedExpression,
-                    start: self.index - token.len,
+                    start: self.index - token.size,
                     token_set: Some((token.kind, self.index)),
                 };
 
@@ -308,7 +327,7 @@ impl<'src> Parser<'src> {
                         None => {
                             let error = ParserError {
                                 error_kind: ErrorKind::ExpectedOperator,
-                                start: self.index - op_token.len,
+                                start: self.index - op_token.size,
                                 token_set: Some((op_token.kind, self.index)),
                             };
 
@@ -345,7 +364,18 @@ impl<'src> Parser<'src> {
         Ok(Some(lhs))
     }
 
-    pub fn parse(&mut self) -> Result<Option<Expr>, ParserError> {
-        self.pratt_parse(0)
+    pub fn parse(&mut self) -> VecDeque<Result<Expr, ParserError>> {
+        let mut exprs = VecDeque::<Result<Expr, ParserError>>::new();
+
+        loop {
+            self.flush_newlines();
+            match self.pratt_parse(0) {
+                Ok(Some(expr)) => exprs.push_back(Ok(expr)),
+                Ok(None) => break,
+                Err(e) => exprs.push_back(Err(e)),
+            }
+        };
+
+        exprs
     }
 }
