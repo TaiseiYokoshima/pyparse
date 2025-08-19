@@ -4,12 +4,11 @@ use std::fmt;
 pub struct Token {
     pub kind: TokenKind,
     pub size: usize,
-    pub count: usize,
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, size: usize, count: usize) -> Self {
-        Self { kind, size, count }
+    pub fn new(kind: TokenKind, size: usize) -> Self {
+        Self { kind, size }
     }
 }
 
@@ -34,6 +33,7 @@ impl fmt::Display for Token {
             TokenKind::Semi => write!(f, "Semi : {}", size),
             TokenKind::Colon => write!(f, "Colon : {}", size),
             TokenKind::Comma => write!(f, "Comma : {}", size),
+            TokenKind::Eof => write!(f, "End : 0"),
         }
     }
 }
@@ -60,4 +60,6 @@ pub enum TokenKind {
     Ident,
     Number,
     InvalidChar,
+
+    Eof,
 }

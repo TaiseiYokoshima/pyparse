@@ -66,6 +66,7 @@ impl<'src> fmt::Display for TokenStream<'src> {
                 TokenKind::WhiteSpace => write!(s, "WhiteSpace({})", &src[index..index + len])?,
                 TokenKind::Ident => write!(s, "Ident({})", &src[index..index + len])?,
                 TokenKind::InvalidChar => write!(s, "Invalid_Char({})", &src[index..index + len])?,
+                TokenKind::Eof => write!(s, "EOF")?,
             };
 
             write!(s, ",")?;

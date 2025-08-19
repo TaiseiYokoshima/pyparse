@@ -16,8 +16,11 @@ fn main() {
     let cursor = Lexer::new(&src);
     let tokens: TokenStream = cursor.tokenize(debug);
 
-    println!("{}", tokens);
+    // for token in &tokens.stream {
+    //     println!("{}", token)
+    // };
 
     let mut parser = Parser::new(tokens);
-    println!("{:?}", parser.parse());
+    parser.parse();
+
 }

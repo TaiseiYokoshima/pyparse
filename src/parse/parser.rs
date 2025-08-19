@@ -1,36 +1,19 @@
-use std::collections::VecDeque;
-use super::ast::{BP, BinOpn, BinOpr, Expr, Literal};
+use std::{collections::VecDeque, ops::Range};
+use super::{ast::{BinOpn, BinOpr, Expr, Literal, LiteralKind, BP}, Diagnostics};
 use crate::lex::{Lexer, Token, TokenKind, TokenStream};
 
-#[derive(Debug)]
-pub enum NumberError {
-    MultipleDots(usize),
-    TooManyDigits,
-    NotDigit(usize),
-}
-
-#[derive(Debug)]
-pub enum IdentError {
-    InvalidStart,
-    InvalidChar(usize),
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum ErrorKind {
     ExpectedExpression,
     ExpectedOperator,
     ExpectedCloseParen,
-
-    NumberError(NumberError),
-    IdentError(IdentError),
 }
 
 #[derive(Debug)]
 pub struct ParserError {
-    error_kind: ErrorKind,
-    line: usize,
-    column_start: usize,
-    token_set: Option<TokenKind>,
+    pub kind: ErrorKind,
+    pub index: usize,
+    pub token: Option<Token>,
 }
 
 pub struct Parser<'src> {
@@ -39,20 +22,41 @@ pub struct Parser<'src> {
     temp: Option<Token>,
     index: usize,
     
-    current_column: usize,
     current_line_number: usize,
     current_line_start_index: usize,
 
-    line_indices: VecDeque<(usize, usize)>,
+    line_indices: VecDeque<Range<usize>>,
 }
 
 impl<'src> Parser<'src> {
 
-   // fn error(&self, kind: ErrorKind, token_op: Option<Token>) -> ParserError {
-   // }
+    #[inline(always)]
+    fn error(&self, kind: ErrorKind, token_op: Option<Token>) -> ParserError {
+        ParserError {
+            kind,
+            index: self.index,
+            token: token_op,
+        }
+    }
 
 
+    #[inline(always)]
+    fn recover(&mut self) {
+        while let Some(token) = self.next() {
+            if token.kind == TokenKind::Newline {
+                self.newline();
+                return;
+            };
+        };
 
+    }
+
+    #[inline(always)]
+    fn error_and_recover(&mut self, kind: ErrorKind, token_op: Option<Token>) -> ParserError {
+        let err = self.error(kind, token_op);
+        self.recover();
+        err
+    }
 
     pub fn new<T: Into<(&'src str, VecDeque<Token>)>>(input: T) -> Self {
         let (src, tokens) = input.into();
@@ -65,7 +69,6 @@ impl<'src> Parser<'src> {
             temp: None,
             current_line_number: 0,
             current_line_start_index: 0,
-            current_column: 0,
             line_indices: VecDeque::new(),
         }
     }
@@ -85,7 +88,6 @@ impl<'src> Parser<'src> {
         let token = loop {
             let token = self.tokens.pop_front()?;
             self.index += token.size;
-            self.current_column += token.count;
 
             if token.kind != TokenKind::WhiteSpace {
                 break token;
@@ -104,6 +106,7 @@ impl<'src> Parser<'src> {
                 self.set_temp(token);
                 return;
             };
+            self.newline();
         }
     }
 
@@ -121,13 +124,6 @@ impl<'src> Parser<'src> {
         let token = self.consume_next()?;
         self.set_temp(token);
         self.temp.as_ref()
-    }
-
-    #[inline(always)]
-    fn str(&self, token: &Token) -> &'src str {
-        let src = self.src;
-        let index = self.index;
-        &src[index - token.size..index]
     }
 
     fn match_operator(&mut self, token_kind: TokenKind) -> Option<BinOpr> {
@@ -163,81 +159,25 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_number(&self, token: &Token) -> Result<Literal, ParserError> {
-        let string = self.str(token);
-        let mut found_dot = false;
-        let mut count = 0_usize;
-        for char in string.chars() {
-            match char {
-                '.' => {
-                    if found_dot {
-                        return Err(ParserError {
-                            start: self.index - token.size,
-                            error_kind: ErrorKind::NumberError(NumberError::MultipleDots(count)),
-                            token_set: Some((token.kind, self.index)),
-                        });
-                    };
 
-                    found_dot = true;
-                }
-                '0'..='9' => (),
-                _ => {
-                    return Err(ParserError {
-                        error_kind: ErrorKind::NumberError(NumberError::NotDigit(count)),
-                        start: self.index - token.size,
-                        token_set: Some((token.kind, self.index)),
-                    });
-                }
-            };
-            count += 1;
+
+    fn get_range(&self, token: &Token) -> Range<usize> {
+        let end = self.index;
+        let start = end - token.size;
+
+        Range {
+            start,
+            end
         }
-
-        let float = string
-            .parse::<f32>()
-            .expect("Should not have errored here, should have not been empty, nor wrong literal");
-
-        let output = if float.is_infinite() {
-            Err(ParserError {
-                error_kind: ErrorKind::NumberError(NumberError::TooManyDigits),
-                start: self.index - token.size,
-                token_set: Some((token.kind, self.index)),
-            })
-        } else {
-            Ok(Literal::Number(float))
-        };
-
-        output
     }
 
-    fn parse_ident(&self, token: &Token) -> Result<Box<str>, ParserError> {
-        let string = self.str(token);
-        let mut iter = string.chars();
 
-        let first = iter.next().expect("Not supposed to be empty");
 
-        if first.is_numeric() || (first != '_' && !first.is_alphabetic()) {
-            return Err(ParserError {
-                error_kind: ErrorKind::IdentError(IdentError::InvalidStart),
-                start: self.index - token.size,
-                token_set: Some((token.kind, self.index)),
-            });
-        };
-
-        let mut count: usize = 1;
-
-        for char in iter {
-            if !char.is_ascii_alphanumeric() && char != '_' {
-                return Err(ParserError {
-                    error_kind: ErrorKind::IdentError(IdentError::InvalidStart),
-                    start: self.index - token.size,
-                    token_set: Some((token.kind, self.index)),
-                });
-            };
-
-            count += 1;
-        }
-
-        Ok(string.to_string().into_boxed_str())
+    #[inline(always)]
+    fn newline(&mut self) {
+        self.line_indices.push_back(Range {start: self.current_line_start_index, end: self.index - 1 });
+        self.current_line_number += 1;
+        self.current_line_start_index = self.index;
     }
 
     fn pratt_parse(&mut self, min_bp: BP) -> Result<Option<Expr>, ParserError> {
@@ -248,26 +188,20 @@ impl<'src> Parser<'src> {
 
         let mut lhs = match token.kind {
             TokenKind::Newline => {
-                self.line_indices.push_back((self.current_line_start_index, self.index - 1));
-                self.current_line_number += 1;
-                self.current_column = 0;
-                self.current_line_start_index = self.index;
+                self.newline();
                 return Ok(None);
             },
-            TokenKind::Number => Expr::Literal(self.parse_number(&token)?),
-            TokenKind::Ident => Expr::Ident(self.parse_ident(&token)?),
+            TokenKind::Number => Expr::Literal(Literal::new(LiteralKind::Number,self.get_range(&token))),
+            TokenKind::Ident => Expr::Ident(self.get_range(&token)),
             TokenKind::OpenParen => {
                 // first check expr for Err and None,
                 let expr_opt = self.pratt_parse(min_bp);
                 let expr = match expr_opt {
                     Ok(Some(expr)) => expr,
                     Ok(None) => {
-                        let error = ParserError {
-                            error_kind: ErrorKind::ExpectedExpression,
-                            start: self.index,
-                            token_set: None,
-                        };
-                        return Err(error);
+                        let err = self.error(ErrorKind::ExpectedExpression, None);
+                        self.recover();
+                        return Err(err);
                     }
                     err @ Err(_) => return err,
                 };
@@ -276,22 +210,19 @@ impl<'src> Parser<'src> {
                 match self.next() {
                     Some(token) => {
                         // error origin: got some token but wasn't close paren
-                        if token.kind != TokenKind::CloseParen {
-                            let error = ParserError {
-                                error_kind: ErrorKind::ExpectedCloseParen,
-                                start: self.index - token.size,
-                                token_set: Some((token.kind, self.index)),
-                            };
-                            return Err(error);
-                        };
+                        match token.kind {
+                            TokenKind::CloseParen => (),
+                            TokenKind::Newline => return Err(self.error(ErrorKind::ExpectedCloseParen, None)),
+                            _ => {
+                                let err = self.error(ErrorKind::ExpectedCloseParen, Some(token));
+                                self.recover();
+                                return Err(err);
+                            },
+                        }
                     }
                     None => {
-                        let error = ParserError {
-                            error_kind: ErrorKind::ExpectedCloseParen,
-                            start: self.index,
-                            token_set: None,
-                        };
-                        return Err(error);
+                        let err = self.error(ErrorKind::ExpectedCloseParen, None);
+                        return Err(err);
                     }
                 };
 
@@ -299,12 +230,8 @@ impl<'src> Parser<'src> {
             }
 
             _ => {
-                let error = ParserError {
-                    error_kind: ErrorKind::ExpectedExpression,
-                    start: self.index - token.size,
-                    token_set: Some((token.kind, self.index)),
-                };
-
+                let error = self.error(ErrorKind::ExpectedExpression, Some(token));
+                self.recover();
                 return Err(error);
             }
         };
@@ -325,12 +252,8 @@ impl<'src> Parser<'src> {
                     let op = match self.match_operator(op_token.kind) {
                         Some(op) => op,
                         None => {
-                            let error = ParserError {
-                                error_kind: ErrorKind::ExpectedOperator,
-                                start: self.index - op_token.size,
-                                token_set: Some((op_token.kind, self.index)),
-                            };
-
+                            let error = self.error(ErrorKind::ExpectedOperator,Some(op_token));
+                            self.recover();
                             return Err(error);
                         }
                     };
@@ -349,12 +272,7 @@ impl<'src> Parser<'src> {
             let rhs = match self.pratt_parse(r_bp)? {
                 Some(exp) => exp,
                 None => {
-                    let error = ParserError {
-                        error_kind: ErrorKind::ExpectedExpression,
-                        start: self.index,
-                        token_set: None,
-                    };
-
+                    let error = self.error(ErrorKind::ExpectedExpression,None);
                     return Err(error);
                 }
             };
@@ -364,18 +282,20 @@ impl<'src> Parser<'src> {
         Ok(Some(lhs))
     }
 
-    pub fn parse(&mut self) -> VecDeque<Result<Expr, ParserError>> {
-        let mut exprs = VecDeque::<Result<Expr, ParserError>>::new();
+    pub fn parse(&mut self) {
+        let mut errors = VecDeque::<ParserError>::new();
 
         loop {
             self.flush_newlines();
             match self.pratt_parse(0) {
-                Ok(Some(expr)) => exprs.push_back(Ok(expr)),
+                Ok(Some(expr)) => println!("expr: {:?}", expr),
                 Ok(None) => break,
-                Err(e) => exprs.push_back(Err(e)),
+                Err(e) => errors.push_back(e),
             }
         };
 
-        exprs
+       let diagnostics = Diagnostics::new(errors, self.src, &self.line_indices);
+       diagnostics.report_all();
+
     }
 }

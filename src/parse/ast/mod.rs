@@ -8,5 +8,5 @@ mod binding_power;
 pub use binary_operator::{BinOpr, BP};
 pub use binary_operation::BinOpn;
 pub use expression::Expr;
-pub use literal::Literal;
+pub use literal::{Literal, LiteralKind};
 pub use identifier::Ident;
