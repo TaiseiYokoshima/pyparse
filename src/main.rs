@@ -3,6 +3,7 @@ use parse::Parser;
 mod lex;
 mod parse;
 mod start;
+mod source;
 
 fn main() {
     use lex::{Lexer, TokenStream};
