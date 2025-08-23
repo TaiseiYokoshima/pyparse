@@ -74,3 +74,30 @@ pub enum TokenKind {
     None,
     Eof,
 }
+
+
+impl fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TokenKind::Dot => write!(f, "`.`"),
+            TokenKind::Plus => write!(f, "`+`"),
+            TokenKind::Minus => write!(f, "`-`"),
+            TokenKind::Star => write!(f, "`*`"),
+            TokenKind::Slash => write!(f, "`/`"),
+            TokenKind::Percent => write!(f, "`%`"),
+            TokenKind::OpenParen => write!(f, "`(`"),
+            TokenKind::CloseParen => write!(f, "`)`"),
+            TokenKind::Number => write!(f, "Number"),
+            TokenKind::Newline => write!(f, "Newline"),
+            TokenKind::Ident => write!(f, "Ident"),
+            TokenKind::WhiteSpace => write!(f, "WhiteSpace"),
+            TokenKind::InvalidChar => write!(f, "Invalid Char"),
+            TokenKind::Semi => write!(f, "Semi"),
+            TokenKind::Colon => write!(f, "Colon"),
+            TokenKind::Comma => write!(f, "Comma"),
+            TokenKind::Eof => write!(f, "End"),
+            TokenKind::None => write!(f, "None"),
+        }
+    }
+}
+

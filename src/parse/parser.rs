@@ -1,8 +1,8 @@
 use super::Diagnostics;
-use super::ast::{BP, BinOpn, BinOpr, Expr, Literal, LiteralKind};
+use super::ast::{BP, BinOpn, BinOpr, Expr, LiteralKind};
 
 use crate::{
-    lex::{Lexer, Token, TokenKind, TokenStream},
+    lex::{Token, TokenKind},
     source::Source,
 };
 use std::{collections::VecDeque, ops::Range};
@@ -21,6 +21,12 @@ pub struct ParserError {
     pub range: Range<usize>,
 }
 
+struct RangedToken {
+    range: Range<usize>,
+    kind: TokenKind,
+}
+
+
 pub struct Parser<'src> {
     src: &'src Source,
     pub tokens: VecDeque<Token>,
@@ -29,14 +35,11 @@ pub struct Parser<'src> {
 
 impl<'src> Parser<'src> {
     #[inline(always)]
-    fn error(&self, error: ErrorKind, token: Token) -> ParserError {
+    fn error(&self, error: ErrorKind, token: RangedToken) -> ParserError {
         ParserError {
             error,
             token: token.kind,
-            range: Range {
-                start: self.index - token.size,
-                end: self.index,
-            },
+            range: token.range,
         }
     }
 
@@ -62,21 +65,32 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
-    fn next(&mut self) -> Token {
+    fn next(&mut self) -> RangedToken {
         let token = loop {
             let token = self
                 .tokens
                 .pop_front()
                 .expect("popped nothing from tokens queue");
-            self.index += token.size;
 
             if token.kind != TokenKind::WhiteSpace {
                 break token;
             };
+            self.index += token.size;
         };
 
+        let end = self.index + token.size;
 
-        token
+        let range = Range {
+            start: self.index,
+            end,
+        };
+
+        self.index = end;
+
+        RangedToken {
+            range,
+            kind: token.kind,
+        }
     }
 
     #[inline(always)]
@@ -87,14 +101,17 @@ impl<'src> Parser<'src> {
     }
 
     #[inline(always)]
-    fn peek_at(&self, at: usize) -> &Token {
+    fn peek_at(&self, at: usize) -> RangedToken {
         let mut iter = self.tokens.iter();
         let mut index = 0;
 
+
+        let mut start = self.index;
         let token = loop {
             let token = iter.next().expect("got none on unwrap for peek");
 
             if token.kind == TokenKind::WhiteSpace {
+                start += token.size;
                 continue;
             };
 
@@ -102,21 +119,42 @@ impl<'src> Parser<'src> {
                 break token;
             };
 
+            start += token.size;
             index += 1;
         };
-        
-        // println!("peeked: {:?}", token.kind);
-        token
+
+        let range = Range {
+            start: start,
+            end: start + token.size,
+        };
+
+        RangedToken {
+            range,
+            kind: token.kind,
+        }
     }
 
     #[inline(always)]
-    fn peek(&self) -> &Token {
+    fn peek(&self) -> RangedToken {
         self.peek_at(0)
     }
 
     #[inline(always)]
-    fn peek_second(&self) -> &Token {
+    fn peek_second(&self) -> RangedToken {
         self.peek_at(1)
+    }
+
+
+    fn none(&self) -> RangedToken {
+        let range = Range {
+            start: self.index - 1,
+            end: self.index,
+        };
+
+        RangedToken {
+            kind: TokenKind::None,
+            range,
+        }
     }
 
 
@@ -139,19 +177,12 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn get_range(&self, token: &Token) -> Range<usize> {
-        let end = self.index;
-        let start = end - token.size;
-
-        Range { start, end }
-    }
-
     fn pratt_parse(&mut self, min_bp: BP) -> Option<Result<Expr, ParserError>> {
         let token = self.next();
         let mut lhs = match token.kind {
             TokenKind::Eof | TokenKind::Newline => return None,
-            TokenKind::Number => Expr::literal(LiteralKind::Number, self.get_range(&token)),
-            TokenKind::Ident => Expr::Ident(self.get_range(&token)),
+            TokenKind::Number => Expr::literal(LiteralKind::Number, token.range),
+            TokenKind::Ident => Expr::Ident(token.range),
             TokenKind::OpenParen => {
                 // first check expr for Err and None,
                 let expr_opt = self.pratt_parse(min_bp);
@@ -159,7 +190,7 @@ impl<'src> Parser<'src> {
                     Some(Ok(expr)) => expr,
                     some_error @ Some(Err(_)) => return some_error,
                     None => {
-                        let err = self.error(ErrorKind::ExpectedExpression, Token::none());
+                        let err = self.error(ErrorKind::ExpectedExpression, self.none());
                         self.recover();
                         return Some(Err(err));
                     }
@@ -170,7 +201,7 @@ impl<'src> Parser<'src> {
                 match peeked.kind {
                     TokenKind::CloseParen => self.next(),
                     _ => {
-                        let err = self.error(ErrorKind::ExpectedCloseParen, peeked.clone());
+                        let err = self.error(ErrorKind::ExpectedCloseParen, peeked);
                         self.recover();
                         return Some(Err(err));
                     },
@@ -194,7 +225,7 @@ impl<'src> Parser<'src> {
                     let op = match self.match_operator(op_token.kind) {
                         Some(op) => op,
                         None => {
-                            let error = self.error(ErrorKind::ExpectedOperator, op_token.clone());
+                            let error = self.error(ErrorKind::ExpectedOperator, op_token);
                             self.recover();
                             return Some(Err(error));
                         }
@@ -226,7 +257,7 @@ impl<'src> Parser<'src> {
                 }
                 err @ Some(Err(_)) => return err,
                 None => {
-                    let error = self.error(ErrorKind::ExpectedExpression, Token::none());
+                    let error = self.error(ErrorKind::ExpectedExpression, self.none());
                     return Some(Err(error));
                 }
             };
@@ -242,10 +273,9 @@ impl<'src> Parser<'src> {
 
         self.flush_newlines();
         while let Some(result) = self.pratt_parse(0) {
-            print!("\n\nexpr: ");
             match result {
-                Ok(expr) => println!("{}", expr),
-                Err(e) => println!("{:?}", e),
+                Ok(_) => (),
+                Err(e) => errors.push_back(e),
             };
             self.flush_newlines();
             print!("\n\n");
@@ -253,8 +283,7 @@ impl<'src> Parser<'src> {
 
         let diagnostics = Diagnostics::new(errors, self.src);
 
-        println!("{:?}", diagnostics.errors);
 
-        // diagnostics.report_all();
+        diagnostics.report_all();
     }
 }
