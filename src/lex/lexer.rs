@@ -3,8 +3,12 @@ use std::str::Chars;
 
 use crate::lex::{Token, TokenKind};
 
+
+
+use crate::source::Source;
+
 pub struct Lexer<'src> {
-    pub src: &'src str,
+    pub src: &'src Source,
     pub tokens: VecDeque<Token>,
     it: Chars<'src>,
     temp_char: Option<char>,
@@ -12,8 +16,8 @@ pub struct Lexer<'src> {
 }
 
 impl<'src> Lexer<'src> {
-    pub fn new(src: &'src str) -> Lexer<'src> {
-        let it = src.chars();
+    pub fn new(src: &'src Source) -> Lexer<'src> {
+        let it = src.into_iter();
         let tokens = VecDeque::default();
         let temp_char = None;
 
@@ -143,6 +147,17 @@ impl<'src> Lexer<'src> {
         };
     }
 
+
+    fn eof(&mut self) {
+        let token = Token {
+            size: 0,
+            kind: TokenKind::Eof,
+        };
+        self.tokens.push_back(token);
+    }
+
+
+
     pub fn tokenize<Output: From<Lexer<'src>>>(mut self, debug: bool) -> Output {
         self.debug = debug;
 
@@ -150,6 +165,8 @@ impl<'src> Lexer<'src> {
             self.parse_char(char);
         };
 
+
+        self.eof();
         Output::from(self)
     }
 }

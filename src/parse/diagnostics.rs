@@ -1,69 +1,40 @@
-use crate::lex::TokenKind;
+use crate::{lex::TokenKind, source::Source};
 use std::fmt::Write;
 
 use super::{ErrorKind, ParserError};
 use std::{collections::VecDeque, ops::Range};
 
-pub struct Diagnostics<'src, 'lines> {
-    errors: VecDeque<ParserError>,
-    src: &'src str,
-    lines: &'lines VecDeque<Range<usize>>,
+pub struct Diagnostics<'src> {
+    pub errors: VecDeque<ParserError>,
+    src: &'src Source,
 }
 
-impl<'src, 'lines> Diagnostics<'src, 'lines> {
-    pub fn new(
-        errors: VecDeque<ParserError>,
-        src: &'src str,
-        lines: &'lines VecDeque<Range<usize>>,
-    ) -> Self {
-        Self { errors, src, lines }
+impl<'src> Diagnostics<'src> {
+    pub fn new(errors: VecDeque<ParserError>, src: &'src Source) -> Self {
+        Self { errors, src, }
     }
 
-    pub fn find_line_none(&self, start: usize) -> &Range<usize> {
-        for line in self.lines {
-            if start < line.end {
-                return line;
-            };
-        }
+    fn formatted_error_some(&self, number: usize, line: Range<usize>, error: &ParserError) {
+        let start = error.range.start - line.start;
+        let end = error.range.end - line.start;
+        let line_str = self.src.line_str(&line);
 
-        panic!("Could not find line")
-    }
+        println!("start: {}", start);
+        println!("end: {}", end);
+        return;
 
-    pub fn find_line_some(&self, start: usize, end: usize) -> (usize, Range<usize>) {
-        for (number, range) in self.lines.iter().enumerate() {
-            if start < range.end {
-                if end > range.end {
-                    panic!("Error token crossed line boundaries")
-                };
 
-                return (number, range.clone());
-            };
-        }
 
-        panic!("Could not find line")
-    }
-
-    fn formatted_error_some(
-        &self,
-        number: usize,
-        line: Range<usize>,
-        error: ErrorKind,
-        token: TokenKind,
-        start: usize,
-        end: usize,
-    ) {
-        let line_str = &self.src[line.clone()];
-        let (start, end) = (start - line.start, end - line.start);
 
 
         let mut second_line = Vec::new();
-        let mut index = 0;
 
+        let mut index = 0;
         let mut column_start = 0;
         let mut column_count = 0;
 
         for (column, char) in line_str.chars().enumerate() {
-            if index >= start && index < end {
+            if index >= start && index <= end {
                 column_count += 1;
                 match second_line.get(second_line.len() - 1) {
                     Some('-') => second_line.push('-'),
@@ -75,59 +46,56 @@ impl<'src, 'lines> Diagnostics<'src, 'lines> {
                     _ => {
                         column_start = column + 1;
                         second_line.push('^');
-                    }
+                    },
                 };
+
             } else {
                 second_line.push(' ');
             };
 
             index += char.len_utf8();
-        }
+        };
 
 
-        let msg = match error {
+
+
+        let msg = match error.error {
             ErrorKind::ExpectedOperator => "expected one of `+`, `-`, `*`, `/`, `%`, `.`,",
             ErrorKind::ExpectedExpression => "expected an expression",
             ErrorKind::ExpectedCloseParen => "could not find the closing parenthesis",
         };
 
         println!("Error: {}", msg);
-        println!("Filename:{}:{}", number + 1, column_start,);
+        println!("Filename:{}:{}", number, column_start);
 
 
 
         // println!("error: {:?}", kind, );
-        println!("{}", line_str);
-        println!("{}", second_line.into_iter().collect::<String>());
+        println!("{:?} ", &line_str);
+        println!("{:?}", second_line.into_iter().collect::<String>());
 
 
         let mut msg = String::new();
-        match error {
+        match error.error {
             ErrorKind::ExpectedCloseParen => write!(msg, "this parenthesis is not closed"),
-            _ => write!(msg, "but found {:?} instead", token),
+            _ => write!(msg, "but found {:?} instead", error.token),
         }.expect("unwrapped fail when writting error");
         println!("{}", msg);
     }
 
     pub fn report(&self, error: &ParserError) {
-        let line = match error.token {
-            Some(token) => {
+        // println!("{:?}", error);
 
-                let end = error.index;
-                let start = error.index - token.size;
-                let (number, line) = Self::find_line_some(&self, start, end);
-
-                self.formatted_error_some(number, line, error.kind, token.kind, start, end);
-            }
-            None => {
-                let line = Self::find_line_none(&self, error.index);
-            }
-        };
+        let (number, line) = self.src.line_range(&error.range);
+        self.formatted_error_some(number, line, error);
     }
 
     pub fn report_all(&self) {
+        let mut index = 0;
         for error in &self.errors {
+            print!("{}", index);
             self.report(&error);
+            index += 1;
         }
     }
 }

@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::fmt::{self, Write};
 
 use crate::lex::{Lexer, Token, TokenKind};
+use crate::source::Source;
 
 #[derive(Debug)]
 pub struct Tokens(VecDeque<Token>);
@@ -24,7 +25,7 @@ impl fmt::Display for Tokens {
 
 #[derive(Debug)]
 pub struct TokenStream<'src> {
-    src: &'src str,
+    src: &'src Source,
     pub stream: VecDeque<Token>,
 }
 
@@ -67,6 +68,7 @@ impl<'src> fmt::Display for TokenStream<'src> {
                 TokenKind::Ident => write!(s, "Ident({})", &src[index..index + len])?,
                 TokenKind::InvalidChar => write!(s, "Invalid_Char({})", &src[index..index + len])?,
                 TokenKind::Eof => write!(s, "EOF")?,
+                TokenKind::None => panic!("There should not be a none token in token stream"),
             };
 
             write!(s, ",")?;
@@ -79,8 +81,8 @@ impl<'src> fmt::Display for TokenStream<'src> {
     }
 }
 
-impl<'src> Into<(&'src str, VecDeque<Token>)> for TokenStream<'src> {
-    fn into(self) -> (&'src str, VecDeque<Token>) {
+impl<'src> Into<(&'src Source, VecDeque<Token>)> for TokenStream<'src> {
+    fn into(self) -> (&'src Source, VecDeque<Token>) {
         (self.src, self.stream)
     }
 }

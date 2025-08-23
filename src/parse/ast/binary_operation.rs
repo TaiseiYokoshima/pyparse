@@ -16,8 +16,8 @@ impl BinOpn {
     }
 }
 
-// impl Display for BinOpn {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-//         write!(f, "( {} {} {} )", self.left, self.op, self.right)
-//     }
-// }
+impl Display for BinOpn {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "( {} {} {} )", self.left, self.op, self.right)
+    }
+}

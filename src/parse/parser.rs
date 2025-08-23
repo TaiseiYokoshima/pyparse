@@ -1,6 +1,11 @@
+use super::Diagnostics;
+use super::ast::{BP, BinOpn, BinOpr, Expr, Literal, LiteralKind};
+
+use crate::{
+    lex::{Lexer, Token, TokenKind, TokenStream},
+    source::Source,
+};
 use std::{collections::VecDeque, ops::Range};
-use super::{ast::{BinOpn, BinOpr, Expr, Literal, LiteralKind, BP}, Diagnostics};
-use crate::lex::{Lexer, Token, TokenKind, TokenStream};
 
 #[derive(Debug, Clone, Copy)]
 pub enum ErrorKind {
@@ -11,54 +16,41 @@ pub enum ErrorKind {
 
 #[derive(Debug)]
 pub struct ParserError {
-    pub kind: ErrorKind,
-    pub index: usize,
-    pub token: Option<Token>,
+    pub error: ErrorKind,
+    pub token: TokenKind,
+    pub range: Range<usize>,
 }
 
 pub struct Parser<'src> {
-    src: &'src str,
+    src: &'src Source,
     pub tokens: VecDeque<Token>,
-    temp: Option<Token>,
     index: usize,
-    
-    current_line_number: usize,
-    current_line_start_index: usize,
-
-    line_indices: VecDeque<Range<usize>>,
 }
 
 impl<'src> Parser<'src> {
-
     #[inline(always)]
-    fn error(&self, kind: ErrorKind, token_op: Option<Token>) -> ParserError {
+    fn error(&self, error: ErrorKind, token: Token) -> ParserError {
         ParserError {
-            kind,
-            index: self.index,
-            token: token_op,
+            error,
+            token: token.kind,
+            range: Range {
+                start: self.index - token.size,
+                end: self.index,
+            },
         }
     }
 
-
     #[inline(always)]
     fn recover(&mut self) {
-        while let Some(token) = self.next() {
-            if token.kind == TokenKind::Newline {
-                self.newline();
+        loop {
+            let token = self.next();
+            if token.kind == TokenKind::Newline || token.kind == TokenKind::Eof {
                 return;
             };
-        };
-
+        }
     }
 
-    #[inline(always)]
-    fn error_and_recover(&mut self, kind: ErrorKind, token_op: Option<Token>) -> ParserError {
-        let err = self.error(kind, token_op);
-        self.recover();
-        err
-    }
-
-    pub fn new<T: Into<(&'src str, VecDeque<Token>)>>(input: T) -> Self {
+    pub fn new<T: Into<(&'src Source, VecDeque<Token>)>>(input: T) -> Self {
         let (src, tokens) = input.into();
         assert!(!tokens.is_empty());
 
@@ -66,27 +58,16 @@ impl<'src> Parser<'src> {
             src,
             tokens,
             index: 0,
-            temp: None,
-            current_line_number: 0,
-            current_line_start_index: 0,
-            line_indices: VecDeque::new(),
         }
     }
 
     #[inline(always)]
-    fn next(&mut self) -> Option<Token> {
-        if let Some(token) = self.temp {
-            self.temp = None;
-            return Some(token);
-        };
-
-        self.consume_next()
-    }
-
-    #[inline(always)]
-    fn consume_next(&mut self) -> Option<Token> {
+    fn next(&mut self) -> Token {
         let token = loop {
-            let token = self.tokens.pop_front()?;
+            let token = self
+                .tokens
+                .pop_front()
+                .expect("popped nothing from tokens queue");
             self.index += token.size;
 
             if token.kind != TokenKind::WhiteSpace {
@@ -94,167 +75,128 @@ impl<'src> Parser<'src> {
             };
         };
 
-        Some(token)
+
+        token
     }
-
-
 
     #[inline(always)]
     fn flush_newlines(&mut self) {
-        while let Some(token) = self.consume_next() {
-            if token.kind != TokenKind::Newline {
-                self.set_temp(token);
-                return;
-            };
-            self.newline();
+        while self.peek().kind == TokenKind::Newline {
+            self.next();
         }
     }
 
     #[inline(always)]
-    fn set_temp(&mut self, token: Token) {
-        self.temp = Some(token);
+    fn peek_at(&self, at: usize) -> &Token {
+        let mut iter = self.tokens.iter();
+        let mut index = 0;
+
+        let token = loop {
+            let token = iter.next().expect("got none on unwrap for peek");
+
+            if token.kind == TokenKind::WhiteSpace {
+                continue;
+            };
+
+            if index == at {
+                break token;
+            };
+
+            index += 1;
+        };
+        
+        // println!("peeked: {:?}", token.kind);
+        token
     }
 
     #[inline(always)]
-    fn peek(&mut self) -> Option<&Token> {
-        if let Some(ref token) = self.temp {
-            return Some(token);
-        };
-
-        let token = self.consume_next()?;
-        self.set_temp(token);
-        self.temp.as_ref()
+    fn peek(&self) -> &Token {
+        self.peek_at(0)
     }
 
-    fn match_operator(&mut self, token_kind: TokenKind) -> Option<BinOpr> {
+    #[inline(always)]
+    fn peek_second(&self) -> &Token {
+        self.peek_at(1)
+    }
+
+
+
+
+    fn match_operator(&self, token_kind: TokenKind) -> Option<(BinOpr, bool)> {
         match token_kind {
-            TokenKind::Plus => Some(BinOpr::Add),
-            TokenKind::Minus => Some(BinOpr::Sub),
-            TokenKind::Percent => Some(BinOpr::Mod),
-            TokenKind::Star => {
-                if let Some(next_token) = self.next() {
-                    if token_kind == next_token.kind {
-                        Some(BinOpr::Exp)
-                    } else {
-                        self.set_temp(next_token);
-                        Some(BinOpr::Mul)
-                    }
-                } else {
-                    None
-                }
-            }
-            TokenKind::Slash => {
-                if let Some(next_token) = self.next() {
-                    if token_kind == next_token.kind {
-                        Some(BinOpr::Flo)
-                    } else {
-                        self.set_temp(next_token);
-                        Some(BinOpr::Div)
-                    }
-                } else {
-                    None
-                }
-            }
+            TokenKind::Plus => Some((BinOpr::Add, false)),
+            TokenKind::Minus => Some((BinOpr::Sub, false)),
+            TokenKind::Percent => Some((BinOpr::Mod, false)),
+            TokenKind::Star => match self.peek_second().kind {
+                TokenKind::Star => Some((BinOpr::Exp, true)),
+                _ => Some((BinOpr::Mul, false)),
+            },
+            TokenKind::Slash => match self.peek_second().kind {
+                TokenKind::Slash => Some((BinOpr::Flo, true)),
+                _ => Some((BinOpr::Div, false)),
+            },
             _ => None,
         }
     }
-
-
 
     fn get_range(&self, token: &Token) -> Range<usize> {
         let end = self.index;
         let start = end - token.size;
 
-        Range {
-            start,
-            end
-        }
+        Range { start, end }
     }
 
-
-
-    #[inline(always)]
-    fn newline(&mut self) {
-        self.line_indices.push_back(Range {start: self.current_line_start_index, end: self.index - 1 });
-        self.current_line_number += 1;
-        self.current_line_start_index = self.index;
-    }
-
-    fn pratt_parse(&mut self, min_bp: BP) -> Result<Option<Expr>, ParserError> {
-        let token = match self.next() {
-            Some(token) => token,
-            None => return Ok(None),
-        };
-
+    fn pratt_parse(&mut self, min_bp: BP) -> Option<Result<Expr, ParserError>> {
+        let token = self.next();
         let mut lhs = match token.kind {
-            TokenKind::Newline => {
-                self.newline();
-                return Ok(None);
-            },
-            TokenKind::Number => Expr::Literal(Literal::new(LiteralKind::Number,self.get_range(&token))),
+            TokenKind::Eof | TokenKind::Newline => return None,
+            TokenKind::Number => Expr::literal(LiteralKind::Number, self.get_range(&token)),
             TokenKind::Ident => Expr::Ident(self.get_range(&token)),
             TokenKind::OpenParen => {
                 // first check expr for Err and None,
                 let expr_opt = self.pratt_parse(min_bp);
                 let expr = match expr_opt {
-                    Ok(Some(expr)) => expr,
-                    Ok(None) => {
-                        let err = self.error(ErrorKind::ExpectedExpression, None);
+                    Some(Ok(expr)) => expr,
+                    some_error @ Some(Err(_)) => return some_error,
+                    None => {
+                        let err = self.error(ErrorKind::ExpectedExpression, Token::none());
                         self.recover();
-                        return Err(err);
+                        return Some(Err(err));
                     }
-                    err @ Err(_) => return err,
                 };
 
                 // check next token exists and is a close paren
-                match self.next() {
-                    Some(token) => {
-                        // error origin: got some token but wasn't close paren
-                        match token.kind {
-                            TokenKind::CloseParen => (),
-                            TokenKind::Newline => return Err(self.error(ErrorKind::ExpectedCloseParen, None)),
-                            _ => {
-                                let err = self.error(ErrorKind::ExpectedCloseParen, Some(token));
-                                self.recover();
-                                return Err(err);
-                            },
-                        }
-                    }
-                    None => {
-                        let err = self.error(ErrorKind::ExpectedCloseParen, None);
-                        return Err(err);
-                    }
+                let peeked = self.peek();
+                match peeked.kind {
+                    TokenKind::CloseParen => self.next(),
+                    _ => {
+                        let err = self.error(ErrorKind::ExpectedCloseParen, peeked.clone());
+                        self.recover();
+                        return Some(Err(err));
+                    },
                 };
-
                 expr
             }
 
             _ => {
-                let error = self.error(ErrorKind::ExpectedExpression, Some(token));
+                let error = self.error(ErrorKind::ExpectedExpression, token);
                 self.recover();
-                return Err(error);
+                return Some(Err(error));
             }
         };
 
-        loop {
-            let op_token = match self.next() {
-                Some(op_token) => op_token,
-                None => break,
-            };
 
-            let op = match op_token.kind {
-                TokenKind::Newline => break,
-                TokenKind::CloseParen => {
-                    self.set_temp(op_token);
-                    break;
-                }
+        loop {
+            let op_token = self.peek();
+            let (op, is_compound) = match op_token.kind {
+                TokenKind::Eof | TokenKind::CloseParen | TokenKind::Newline => break,
                 _ => {
                     let op = match self.match_operator(op_token.kind) {
                         Some(op) => op,
                         None => {
-                            let error = self.error(ErrorKind::ExpectedOperator,Some(op_token));
+                            let error = self.error(ErrorKind::ExpectedOperator, op_token.clone());
                             self.recover();
-                            return Err(error);
+                            return Some(Err(error));
                         }
                     };
 
@@ -262,40 +204,57 @@ impl<'src> Parser<'src> {
                 }
             };
 
-            let (l_bp, r_bp): (BP, BP) = op.get_bp();
 
+
+            let (l_bp, r_bp): (BP, BP) = op.get_bp();
             if min_bp > l_bp {
-                self.set_temp(op_token);
                 break;
             };
 
-            let rhs = match self.pratt_parse(r_bp)? {
-                Some(exp) => exp,
+            if is_compound {
+                self.next();
+                self.next();
+            } else {
+                self.next();
+            };
+
+
+            let rhs = self.pratt_parse(r_bp);
+            let rhs = match rhs {
+                Some(Ok(exp)) => {
+                    exp
+                }
+                err @ Some(Err(_)) => return err,
                 None => {
-                    let error = self.error(ErrorKind::ExpectedExpression,None);
-                    return Err(error);
+                    let error = self.error(ErrorKind::ExpectedExpression, Token::none());
+                    return Some(Err(error));
                 }
             };
 
-            lhs = Expr::BinOp(Box::new(BinOpn::new(op, lhs, rhs)));
+            lhs = Expr::bin_op(BinOpn::new(op, lhs, rhs));
         }
-        Ok(Some(lhs))
+
+        Some(Ok(lhs))
     }
 
     pub fn parse(&mut self) {
         let mut errors = VecDeque::<ParserError>::new();
 
-        loop {
+        self.flush_newlines();
+        while let Some(result) = self.pratt_parse(0) {
+            print!("\n\nexpr: ");
+            match result {
+                Ok(expr) => println!("{}", expr),
+                Err(e) => println!("{:?}", e),
+            };
             self.flush_newlines();
-            match self.pratt_parse(0) {
-                Ok(Some(expr)) => println!("expr: {:?}", expr),
-                Ok(None) => break,
-                Err(e) => errors.push_back(e),
-            }
-        };
+            print!("\n\n");
+        }
 
-       let diagnostics = Diagnostics::new(errors, self.src, &self.line_indices);
-       diagnostics.report_all();
+        let diagnostics = Diagnostics::new(errors, self.src);
 
+        println!("{:?}", diagnostics.errors);
+
+        // diagnostics.report_all();
     }
 }

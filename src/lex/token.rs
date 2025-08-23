@@ -10,6 +10,13 @@ impl Token {
     pub fn new(kind: TokenKind, size: usize) -> Self {
         Self { kind, size }
     }
+
+    pub fn none() -> Self {
+        Self {
+            kind: TokenKind::None,
+            size: 0,
+        }
+    }
 }
 
 impl fmt::Display for Token {
@@ -34,6 +41,7 @@ impl fmt::Display for Token {
             TokenKind::Colon => write!(f, "Colon : {}", size),
             TokenKind::Comma => write!(f, "Comma : {}", size),
             TokenKind::Eof => write!(f, "End : 0"),
+            TokenKind::None => write!(f, "None : 0"),
         }
     }
 }
@@ -61,5 +69,8 @@ pub enum TokenKind {
     Number,
     InvalidChar,
 
+
+    // for error reporting purpose only
+    None,
     Eof,
 }
