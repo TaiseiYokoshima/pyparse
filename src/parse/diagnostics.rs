@@ -15,7 +15,6 @@ impl<'src> Diagnostics<'src> {
         Self { errors, src, }
     }
 
-
     fn build_highlighter(line_string: &str, range: Range<usize>) -> (usize, usize, String) {
         let start = range.start;
         let end = range.end;

@@ -8,7 +8,6 @@ pub struct Source {
     line_ranges: VecDeque<Range<usize>>,
 }
 
-
 impl Source {
     pub fn new(src: String) -> Self {
         let mut line_ranges = VecDeque::new();

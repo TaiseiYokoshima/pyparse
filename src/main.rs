@@ -1,14 +1,11 @@
-use parse::Parser;
+// use parse::Parser;
+// mod parse;
 
 mod lex;
-mod parse;
 mod start;
 mod source;
 
-
 use std::mem::size_of;
-
-
 
 fn main() {
     use lex::{Lexer, TokenStream, Token};
@@ -36,11 +33,11 @@ fn main() {
 
     let tokens: TokenStream = cursor.tokenize(debug);
 
-    // for token in &tokens.stream {
-    //     println!("{}", token)
-    // };
+    for token in &tokens.stream {
+        println!("{}", token)
+    };
 
-    let mut parser = Parser::new(tokens);
-    parser.parse();
+    // let mut parser = Parser::new(tokens);
+    // parser.parse();
 
 }
