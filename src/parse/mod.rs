@@ -1,7 +1,7 @@
 mod ast;
-mod parser;
 mod diagnostics;
 mod generic;
+mod parser;
 
-pub use parser::{Parser, ParserError, ErrorKind};
 pub use diagnostics::Diagnostics;
+pub use parser::{ErrorKind, Parser, ParserError};

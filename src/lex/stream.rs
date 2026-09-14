@@ -62,7 +62,6 @@ impl<'src> fmt::Display for TokenStream<'src> {
             TokenKind::Colon => write!(s, "`:`")?,
             TokenKind::Comma => write!(s, "`,`")?,
 
-
             TokenKind::DoubleQuote => write!(s, "`\"`")?,
             TokenKind::SingleQuote => write!(s, "`'`")?,
 

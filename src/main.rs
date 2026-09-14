@@ -1,43 +1,38 @@
-// use parse::Parser;
-// mod parse;
+use parse::Parser;
+mod parse;
+
+mod ast;
 
 mod lex;
-mod start;
 mod source;
+mod start;
 
 use std::mem::size_of;
 
 fn main() {
-    use lex::{Lexer, TokenStream, Token};
-    use source::Source;
+   use lex::{Lexer, Token, TokenStream};
+   use source::Source;
 
-    let src = Source::new({
-        let path = start::parse_path();
-        start::load_src(&path)
-    });
+   let src = Source::new({
+      let path = start::parse_path();
+      start::load_src(&path)
+   });
 
-
-    // println!("size of token: {}", size_of::<Token>());
-
+   // println!("size of token: {}", size_of::<Token>());
 
    // src.print_lines();
    // println!("\n\n{:?}", src.line_ranges);
    // return;
 
+   let debug = false;
+   let cursor = Lexer::new(&src);
 
+   let tokens: TokenStream = cursor.tokenize(debug);
 
-    let debug = false;
-    let cursor = Lexer::new(&src);
-    
+   for token in &tokens.stream {
+      println!("{}", token)
+   }
 
-
-    let tokens: TokenStream = cursor.tokenize(debug);
-
-    for token in &tokens.stream {
-        println!("{}", token)
-    };
-
-    // let mut parser = Parser::new(tokens);
-    // parser.parse();
-
+   // let mut parser = Parser::new(tokens);
+   // parser.parse();
 }

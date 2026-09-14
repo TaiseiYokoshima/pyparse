@@ -93,13 +93,13 @@ impl<'src> Lexer<'src> {
          match char {
             ' ' | '\n' | '\t' | '\r' => {
                size += 1;
-            },
+            }
 
             char => {
                self.push(TokenKind::WhiteSpace, size);
                self.set_temp(char);
                return;
-            },
+            }
          };
       }
    }
