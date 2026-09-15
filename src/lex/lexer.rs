@@ -91,7 +91,7 @@ impl<'src> Lexer<'src> {
 
       while let Some(char) = self.advance() {
          match char {
-            ' ' | '\n' | '\t' | '\r' => {
+            ' ' | '\t' | '\r' => {
                size += 1;
             }
 
@@ -106,7 +106,8 @@ impl<'src> Lexer<'src> {
 
    fn parse_char(&mut self, first: char) {
       match first {
-         ' ' | '\n' | '\t' | '\r' => self.parse_whitespace(),
+         ' ' | '\t' | '\r' => self.parse_whitespace(),
+         '\n' => self.push(TokenKind::Newline, 1),
 
          '(' => self.push(TokenKind::OpenParen, 1),
          ')' => self.push(TokenKind::CloseParen, 1),

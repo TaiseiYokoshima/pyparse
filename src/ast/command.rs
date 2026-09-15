@@ -14,7 +14,6 @@ struct WordPart {
 
 pub struct Word(Vec<WordPart>, Span);
 
-
 pub enum RedirectKind {
    WriteDup,
    WritePath,
@@ -45,4 +44,3 @@ pub struct Cmd {
    span: Span,
    bin: Option<(CmdOperator, Box<Cmd>)>
 }
-

@@ -44,35 +44,9 @@ impl<'src> fmt::Display for TokenStream<'src> {
       let mut s = String::new();
       write!(s, "Tokens: [")?;
 
-      let mut index = 0;
       for token in &self.stream {
          let len = token.size;
-
-         write!(s, " ")?;
-         match token.kind {
-            TokenKind::Dot => write!(s, "`.`")?,
-            TokenKind::Plus => write!(s, "`+`")?,
-            TokenKind::Minus => write!(s, "`-`")?,
-            TokenKind::Star => write!(s, "`*`")?,
-            TokenKind::Slash => write!(s, "`/`")?,
-            TokenKind::Percent => write!(s, "`%`")?,
-            TokenKind::OpenParen => write!(s, "`(`")?,
-            TokenKind::CloseParen => write!(s, "`)`")?,
-            TokenKind::Semi => write!(s, "`;`")?,
-            TokenKind::Colon => write!(s, "`:`")?,
-            TokenKind::Comma => write!(s, "`,`")?,
-
-            TokenKind::DoubleQuote => write!(s, "`\"`")?,
-            TokenKind::SingleQuote => write!(s, "`'`")?,
-
-            TokenKind::WhiteSpace => write!(s, "WhiteSpace({})", &src[index..index + len])?,
-            TokenKind::Ident => write!(s, "Ident({})", &src[index..index + len])?,
-            TokenKind::InvalidChar => write!(s, "Invalid_Char({})", &src[index..index + len])?,
-            TokenKind::Eof => write!(s, "EOF")?,
-         };
-
-         write!(s, ",")?;
-         index += len;
+         write!(s, "{} ", token)?;
       }
 
       s.pop();

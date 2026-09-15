@@ -1,4 +1,3 @@
-use parse::Parser;
 mod parse;
 
 mod ast;
@@ -7,10 +6,8 @@ mod lex;
 mod source;
 mod start;
 
-use std::mem::size_of;
-
 fn main() {
-   use lex::{Lexer, Token, TokenStream};
+   use lex::{Lexer, TokenStream};
    use source::Source;
 
    let src = Source::new({

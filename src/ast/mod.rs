@@ -1,14 +1,14 @@
 mod expr;
-mod command;
+pub mod command;
 
-use crate::lex::TokenKind;
+pub use crate::lex::TokenKind;
 
 pub struct Span {
-   pos: usize,
-   len: usize,
+   pub pos: usize,
+   pub len: usize,
 }
 
 pub struct Token {
-   kind: TokenKind,
-   span: Span,
+   pub kind: TokenKind,
+   pub span: Span,
 }

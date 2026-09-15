@@ -32,8 +32,15 @@ impl fmt::Display for Token {
          TokenKind::Colon => write!(f, "Colon : {}", size),
          TokenKind::Comma => write!(f, "Comma : {}", size),
          TokenKind::Eof => write!(f, "End : 0"),
-         TokenKind::DoubleQuote => write!(f, "DoubleQuote"),
-         TokenKind::SingleQuote => write!(f, "SingleQuote"),
+         TokenKind::DoubleQuote => write!(f, "DoubleQuote : {}", size),
+         TokenKind::SingleQuote => write!(f, "SingleQuote : {}", size),
+         TokenKind::Ampersand => write!(f, "& : {}", size),
+         TokenKind::Dollar => write!(f, "$ : {}", size),
+         TokenKind::Pipe => write!(f, "| : {}", size),
+         TokenKind::Newline => write!(f, "\\n : {}", size),
+         TokenKind::OpenAngle => write!(f, r"< : {}", size),
+         TokenKind::CloseAngler => write!(f, r"> : {}", size),
+
       }
    }
 }
@@ -41,15 +48,25 @@ impl fmt::Display for Token {
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TokenKind {
    WhiteSpace,
+   Newline,
 
    OpenParen,
    CloseParen,
+
+   Dollar,
+   Pipe,
+   Ampersand,
 
    Plus,
    Minus,
    Slash,
    Star,
    Percent,
+
+   OpenAngle,
+   CloseAngler,
+
+   
 
    Dot,
    Comma,
@@ -85,6 +102,13 @@ impl fmt::Display for TokenKind {
          TokenKind::Eof => write!(f, "End"),
          TokenKind::DoubleQuote => write!(f, "DoubleQuote"),
          TokenKind::SingleQuote => write!(f, "SingleQuote"),
+         TokenKind::Ampersand => write!(f, "&"),
+         TokenKind::Dollar => write!(f, "$"),
+         TokenKind::Pipe => write!(f, "|"),
+         TokenKind::Newline => write!(f, r"\n"),
+         TokenKind::OpenAngle => write!(f, r"<"),
+         TokenKind::CloseAngler => write!(f, r">"),
       }
+
    }
 }
