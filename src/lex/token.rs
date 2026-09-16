@@ -17,29 +17,29 @@ impl fmt::Display for Token {
       let size = self.size;
 
       match self.kind {
-         TokenKind::Dot => write!(f, "'.' : {}", size),
-         TokenKind::Plus => write!(f, "'+' : {}", size),
-         TokenKind::Minus => write!(f, "'-' : {}", size),
-         TokenKind::Star => write!(f, "'*' : {}", size),
-         TokenKind::Slash => write!(f, "'/' : {}", size),
-         TokenKind::Percent => write!(f, "'%' : {}", size),
-         TokenKind::OpenParen => write!(f, "'(' : {}", size),
-         TokenKind::CloseParen => write!(f, "')' : {}", size),
-         TokenKind::Ident => write!(f, "Ident : {}", size),
-         TokenKind::WhiteSpace => write!(f, "WhiteSpace : {}", size),
-         TokenKind::InvalidChar => write!(f, "Invalid Char : {}", size),
-         TokenKind::Semi => write!(f, "Semi : {}", size),
-         TokenKind::Colon => write!(f, "Colon : {}", size),
-         TokenKind::Comma => write!(f, "Comma : {}", size),
-         TokenKind::Eof => write!(f, "End : 0"),
-         TokenKind::DoubleQuote => write!(f, "DoubleQuote : {}", size),
-         TokenKind::SingleQuote => write!(f, "SingleQuote : {}", size),
-         TokenKind::Ampersand => write!(f, "& : {}", size),
-         TokenKind::Dollar => write!(f, "$ : {}", size),
-         TokenKind::Pipe => write!(f, "| : {}", size),
-         TokenKind::Newline => write!(f, "\\n : {}", size),
-         TokenKind::OpenAngle => write!(f, r"< : {}", size),
-         TokenKind::CloseAngler => write!(f, r"> : {}", size),
+         TokenKind::Dot => write!(f, "Dot(:{})", size),
+         TokenKind::Plus => write!(f, "Plus(:{})", size),
+         TokenKind::Minus => write!(f, "Minus(:{})", size),
+         TokenKind::Star => write!(f, "Star(:{})", size),
+         TokenKind::Slash => write!(f, "Slash(:{})", size),
+         TokenKind::Percent => write!(f, "Percent(:{})", size),
+         TokenKind::OpenParen => write!(f, "OpenParen(:{})", size),
+         TokenKind::CloseParen => write!(f, "CloseParen(:{})", size),
+         TokenKind::Ident => write!(f, "Ident({})", size),
+         TokenKind::WhiteSpace => write!(f, "WhiteSpace(:{})", size),
+         TokenKind::InvalidChar => write!(f, "InvalidChar(:{})", size),
+         TokenKind::Semi => write!(f, "Semi(:{})", size),
+         TokenKind::Colon => write!(f, "Colon(:{})", size),
+         TokenKind::Comma => write!(f, "Comma(:{})", size),
+         TokenKind::Eof => write!(f, "Eof"),
+         TokenKind::DoubleQuote => write!(f, "DoubleQuote(:{})", size),
+         TokenKind::SingleQuote => write!(f, "SingleQuote(:{})", size),
+         TokenKind::Ampersand => write!(f, "Ampersand(:{})", size),
+         TokenKind::Dollar => write!(f, "Dollar(:{})", size),
+         TokenKind::Pipe => write!(f, "Pipe(:{})", size),
+         TokenKind::Newline => write!(f, "Newline(:{})", size),
+         TokenKind::OpenAngle => write!(f, r"OpenAngle(:{})", size),
+         TokenKind::CloseAngler => write!(f, r"CloseAngler(:{})", size),
 
       }
    }
@@ -68,6 +68,16 @@ pub enum TokenKind {
 
    
 
+   Literal,
+   Var,
+   ShellSubStart,
+   ShellSubStart,
+   ShellVar,
+
+
+
+
+
    Dot,
    Comma,
    Semi,
@@ -82,33 +92,4 @@ pub enum TokenKind {
    Eof,
 }
 
-impl fmt::Display for TokenKind {
-   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-      match self {
-         TokenKind::Dot => write!(f, "`.`"),
-         TokenKind::Plus => write!(f, "`+`"),
-         TokenKind::Minus => write!(f, "`-`"),
-         TokenKind::Star => write!(f, "`*`"),
-         TokenKind::Slash => write!(f, "`/`"),
-         TokenKind::Percent => write!(f, "`%`"),
-         TokenKind::OpenParen => write!(f, "`(`"),
-         TokenKind::CloseParen => write!(f, "`)`"),
-         TokenKind::Ident => write!(f, "Ident"),
-         TokenKind::WhiteSpace => write!(f, "WhiteSpace"),
-         TokenKind::InvalidChar => write!(f, "Invalid Char"),
-         TokenKind::Semi => write!(f, "Semi"),
-         TokenKind::Colon => write!(f, "Colon"),
-         TokenKind::Comma => write!(f, "Comma"),
-         TokenKind::Eof => write!(f, "End"),
-         TokenKind::DoubleQuote => write!(f, "DoubleQuote"),
-         TokenKind::SingleQuote => write!(f, "SingleQuote"),
-         TokenKind::Ampersand => write!(f, "&"),
-         TokenKind::Dollar => write!(f, "$"),
-         TokenKind::Pipe => write!(f, "|"),
-         TokenKind::Newline => write!(f, r"\n"),
-         TokenKind::OpenAngle => write!(f, r"<"),
-         TokenKind::CloseAngler => write!(f, r">"),
-      }
 
-   }
-}
