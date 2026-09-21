@@ -1,46 +1,85 @@
 use std::fmt;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Token {
-   pub kind: TokenKind,
-   pub size: usize,
+pub struct Span {
+   pub start: usize,
+   pub end: usize,
 }
 
-impl Token {
-   pub fn new(kind: TokenKind, size: usize) -> Self {
-      Self { kind, size }
+impl Span {
+   pub fn zero(pos: usize) -> Self {
+      Self {
+         start: pos,
+         end: pos,
+      }
+   }
+
+   pub fn one(pos: usize) -> Self {
+      Self {
+         start: pos,
+         end: pos + 1,
+      }
+   }
+
+   pub fn new(pos: usize, len: usize) -> Self {
+      Self {
+         start: pos,
+         end: pos + len,
+      }
    }
 }
 
+impl Span {
+   pub fn len(&self) -> usize {
+      self.end - self.start
+   }
+}
+
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct Token {
+   pub kind: TokenKind,
+   pub span: Span,
+}
+
+impl Token {
+   pub fn new(kind: TokenKind, span: Span) -> Self {
+      Self {
+         kind, span
+      }
+   }
+}
+
+
 impl fmt::Display for Token {
    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-      let size = self.size;
+      let len = self.span.len();
 
       match self.kind {
-         TokenKind::Dot => write!(f, "Dot(:{})", size),
-         TokenKind::Plus => write!(f, "Plus(:{})", size),
-         TokenKind::Minus => write!(f, "Minus(:{})", size),
-         TokenKind::Star => write!(f, "Star(:{})", size),
-         TokenKind::Slash => write!(f, "Slash(:{})", size),
-         TokenKind::Percent => write!(f, "Percent(:{})", size),
-         TokenKind::OpenParen => write!(f, "OpenParen(:{})", size),
-         TokenKind::CloseParen => write!(f, "CloseParen(:{})", size),
-         TokenKind::Ident => write!(f, "Ident({})", size),
-         TokenKind::WhiteSpace => write!(f, "WhiteSpace(:{})", size),
-         TokenKind::InvalidChar => write!(f, "InvalidChar(:{})", size),
-         TokenKind::Semi => write!(f, "Semi(:{})", size),
-         TokenKind::Colon => write!(f, "Colon(:{})", size),
-         TokenKind::Comma => write!(f, "Comma(:{})", size),
+         TokenKind::Dot => write!(f, "Dot({})", len),
+         TokenKind::Plus => write!(f, "Plus({})", len),
+         TokenKind::Minus => write!(f, "Minus({})", len),
+         TokenKind::Star => write!(f, "Star({})", len),
+         TokenKind::Slash => write!(f, "Slash({})", len),
+         TokenKind::Percent => write!(f, "Percent({})", len),
+         TokenKind::OpenParen => write!(f, "OpenParen({})", len),
+         TokenKind::CloseParen => write!(f, "CloseParen({})", len),
+         TokenKind::Ident => write!(f, "Ident({})", len),
+         TokenKind::WhiteSpace => write!(f, "WhiteSpace({})", len),
+         TokenKind::InvalidChar => write!(f, "InvalidChar({})", len),
+         TokenKind::Semi => write!(f, "Semi({})", len),
+         TokenKind::Colon => write!(f, "Colon({})", len),
+         TokenKind::Comma => write!(f, "Comma({})", len),
          TokenKind::Eof => write!(f, "Eof"),
-         TokenKind::DoubleQuote => write!(f, "DoubleQuote(:{})", size),
-         TokenKind::SingleQuote => write!(f, "SingleQuote(:{})", size),
-         TokenKind::Ampersand => write!(f, "Ampersand(:{})", size),
-         TokenKind::Dollar => write!(f, "Dollar(:{})", size),
-         TokenKind::Pipe => write!(f, "Pipe(:{})", size),
-         TokenKind::Newline => write!(f, "Newline(:{})", size),
-         TokenKind::OpenAngle => write!(f, r"OpenAngle(:{})", size),
-         TokenKind::CloseAngler => write!(f, r"CloseAngler(:{})", size),
-
+         TokenKind::Ampersand => write!(f, "Ampersand({})", len),
+         TokenKind::Dollar => write!(f, "Dollar({})", len),
+         TokenKind::Pipe => write!(f, "Pipe({})", len),
+         TokenKind::Newline => write!(f, "Newline({})", len),
+         TokenKind::ShellLiteral => write!(f, "ShellLiteral({})", len),
+         TokenKind::Backslash => write!(f, "ShellEscape({})", len),
+         TokenKind::ShellRedirect => write!(f, "ShellRedirect({})", len),
+         TokenKind::ShellDoubleQuote => write!(f, "ShellDoubleQuote({})", len),
+         TokenKind::ShellSingleQuote => write!(f, "ShellSingleQuote({})", len),
       }
    }
 }
@@ -50,46 +89,33 @@ pub enum TokenKind {
    WhiteSpace,
    Newline,
 
-   OpenParen,
-   CloseParen,
-
    Dollar,
-   Pipe,
-   Ampersand,
-
    Plus,
    Minus,
    Slash,
    Star,
    Percent,
 
-   OpenAngle,
-   CloseAngler,
+   // shared
+   OpenParen,
+   CloseParen,
+   Ampersand,
+   Pipe,
+   Semi,
+   Colon,
+   Backslash,
 
-   
-
-   Literal,
-   Var,
-   ShellSubStart,
-   ShellSubStart,
-   ShellVar,
-
-
-
-
+   // shell tokens
+   ShellLiteral,
+   ShellRedirect,
+   ShellDoubleQuote,
+   ShellSingleQuote,
 
    Dot,
    Comma,
-   Semi,
-   Colon,
-
-   DoubleQuote,
-   SingleQuote,
 
    Ident,
    InvalidChar,
 
    Eof,
 }
-
-
