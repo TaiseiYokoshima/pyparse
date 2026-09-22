@@ -61,7 +61,7 @@ impl<'src> ShellCursor<'src> {
    }
 
    fn shell_word(&mut self) -> Result<Token, LexError> {
-      let kind = TokenKind::ShellLiteral;
+      let kind = TokenKind::Word;
 
       while let Some(char) = self.peek() {
          match char {
@@ -95,11 +95,45 @@ impl<'src> ShellCursor<'src> {
       Ok(token)
    }
 
-   fn redirect(&mut self) -> Token {
+   fn redirect_doc(&mut self) {
       todo!()
    }
 
-   fn expansion(&mut self) -> Token {
+   fn redirect(&mut self) -> Result<Token, LexError> {
+      self.len += 1;
+
+      while let Some(char) = self.peek() {
+         match char {
+            '>' | '<' => {
+               self.next();
+               self.len += 1;
+            },
+            _ => break,
+         };
+      };
+
+
+      let str = &self.src[self.pos..self.pos + self.len];
+
+      let kind = match str {
+         ">" => TokenKind::RedirectOut,
+         ">>" => TokenKind::RedirectOutAppend,
+         "<" => TokenKind::RedirectIn,
+         "<<<" => TokenKind::RedirectInStr,
+         "<<" => {
+            self.redirect_doc();
+            TokenKind::RedirectInDoc
+         },
+         _ => <some error>
+      };
+
+      let span = Span::new(self.pos, self.len);
+      let token = Token { span, kind };
+      self.reset();
+      Ok(token)
+   }
+
+   fn lang_expansion(&mut self) -> Token {
       todo!()
    }
 
@@ -112,15 +146,16 @@ impl<'src> ShellCursor<'src> {
       };
 
       let token = match char {
+         'f' if self.peek() == Some('d') => todo!("impl use of fd"),
          '(' => self.single_byte_token(TokenKind::OpenParen),
          ')' => self.single_byte_token(TokenKind::CloseParen),
          '|' => self.single_byte_token(TokenKind::Pipe),
          '&' => self.single_byte_token(TokenKind::Ampersand),
          ';' => self.single_byte_token(TokenKind::Semi),
-         '"' => self.single_byte_token(TokenKind::ShellDoubleQuote),
-         '\'' => self.single_byte_token(TokenKind::ShellSingleQuote),
-         ':' => self.expansion(),
-         '>' | '<' => self.redirect(),
+         '"' => self.single_byte_token(TokenKind::DoubleQuote),
+         '\'' => self.single_byte_token(TokenKind::SingleQuote),
+         ':' => self.lang_expansion(),
+         '>' | '<' => self.redirect()?,
          '\\' => {
             let Some(next_char) = self.next() else {
                self.pos += 1;
@@ -134,7 +169,7 @@ impl<'src> ShellCursor<'src> {
                let start = self.pos;
                let len = 2;
                let span = Span::new(start, len);
-               let kind = TokenKind::WhiteSpace;
+               let kind = TokenKind::LineContinuation;
                self.pos += len;
 
                Token { kind, span }
@@ -174,7 +209,7 @@ fn start_with_newline() {
    let mut cursor = ShellCursor::new(source);
    let result = cursor.shell_word();
    assert!(result.is_ok());
-   assert_eq!(result.unwrap().kind, TokenKind::ShellLiteral);
+   assert_eq!(result.unwrap().kind, TokenKind::Word);
 }
 
 #[test]
@@ -195,7 +230,7 @@ fn shell_word_ascii() {
     let mut cursor = ShellCursor::new(source);
     let token = cursor.shell_word().unwrap();
 
-    assert_eq!(token.kind, TokenKind::ShellLiteral);
+    assert_eq!(token.kind, TokenKind::Word);
     assert_eq!(token.span, Span::new(0, 5));
 }
 
@@ -206,7 +241,7 @@ fn shell_word_stops_at_space() {
     let mut cursor = ShellCursor::new(source);
     let token = cursor.shell_word().unwrap();
 
-    assert_eq!(token.kind, TokenKind::ShellLiteral);
+    assert_eq!(token.kind, TokenKind::Word);
     assert_eq!(token.span, Span::new(0, 5));
 }
 
@@ -217,7 +252,7 @@ fn shell_word_stops_at_shell_operator() {
     let mut cursor = ShellCursor::new(source);
     let token = cursor.shell_word().unwrap();
 
-    assert_eq!(token.kind, TokenKind::ShellLiteral);
+    assert_eq!(token.kind, TokenKind::Word);
     assert_eq!(token.span, Span::new(0, 5));
 }
 
@@ -228,7 +263,7 @@ fn shell_word_stops_at_expansion() {
     let mut cursor = ShellCursor::new(source);
     let token = cursor.shell_word().unwrap();
 
-    assert_eq!(token.kind, TokenKind::ShellLiteral);
+    assert_eq!(token.kind, TokenKind::Word);
     assert_eq!(token.span, Span::new(0, 5));
 }
 
@@ -239,7 +274,7 @@ fn shell_word_stops_at_quotes() {
     let mut cursor = ShellCursor::new(source);
     let token = cursor.shell_word().unwrap();
 
-    assert_eq!(token.kind, TokenKind::ShellLiteral);
+    assert_eq!(token.kind, TokenKind::Word);
     assert_eq!(token.span, Span::new(0, 5));
 }
 
@@ -250,7 +285,7 @@ fn shell_word_escaped_space() {
     let mut cursor = ShellCursor::new(source);
     let token = cursor.shell_word().unwrap();
 
-    assert_eq!(token.kind, TokenKind::ShellLiteral);
+    assert_eq!(token.kind, TokenKind::Word);
     assert_eq!(token.span, Span::new(0, 12));
 }
 
@@ -261,7 +296,7 @@ fn shell_word_escaped_operator() {
     let mut cursor = ShellCursor::new(source);
     let token = cursor.shell_word().unwrap();
 
-    assert_eq!(token.kind, TokenKind::ShellLiteral);
+    assert_eq!(token.kind, TokenKind::Word);
     assert_eq!(token.span, Span::new(0, 12));
 }
 
@@ -272,7 +307,7 @@ fn shell_word_escaped_dollar() {
     let mut cursor = ShellCursor::new(source);
     let token = cursor.shell_word().unwrap();
 
-    assert_eq!(token.kind, TokenKind::ShellLiteral);
+    assert_eq!(token.kind, TokenKind::Word);
     assert_eq!(token.span, Span::new(0, 12));
 }
 
@@ -283,7 +318,7 @@ fn shell_word_escaped_quote() {
     let mut cursor = ShellCursor::new(source);
     let token = cursor.shell_word().unwrap();
 
-    assert_eq!(token.kind, TokenKind::ShellLiteral);
+    assert_eq!(token.kind, TokenKind::Word);
     assert_eq!(token.span, Span::new(0, 12));
 }
 
@@ -294,7 +329,7 @@ fn shell_word_unicode() {
     let mut cursor = ShellCursor::new(source);
     let token = cursor.shell_word().unwrap();
 
-    assert_eq!(token.kind, TokenKind::ShellLiteral);
+    assert_eq!(token.kind, TokenKind::Word);
     assert_eq!(token.span, Span::new(0, 11));
 }
 
@@ -305,7 +340,7 @@ fn shell_word_unicode_before_delimiter() {
     let mut cursor = ShellCursor::new(source);
     let token = cursor.shell_word().unwrap();
 
-    assert_eq!(token.kind, TokenKind::ShellLiteral);
+    assert_eq!(token.kind, TokenKind::Word);
     assert_eq!(token.span, Span::new(0, 11));
 }
 

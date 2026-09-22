@@ -223,3 +223,26 @@ The language has two distinct computational domains:
 $<further config>()
 :<further config>()
 
+
+Keyword to remove fd:
+
+```bash
+# n means either int literal for fd n or a shell subcommand or lang expansion that resolves to a fd n
+fd close n
+fd open  n file
+
+# keep default for:
+[n] > file          # n defaults to 1
+[n] >> file         # n defaults to 1
+[n] < file.txt      # n defaults to 0
+[n] <<EOF           # n defaults to 0
+[n] <<< string      # n defaults to 0
+fd 2 > file.txt
+fd 1 >> file.txt
+fd 0 < file.txt
+fd 3 << EOF
+fd 3 <<< string
+```
+
+
+

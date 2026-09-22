@@ -75,11 +75,17 @@ impl fmt::Display for Token {
          TokenKind::Dollar => write!(f, "Dollar({})", len),
          TokenKind::Pipe => write!(f, "Pipe({})", len),
          TokenKind::Newline => write!(f, "Newline({})", len),
-         TokenKind::ShellLiteral => write!(f, "ShellLiteral({})", len),
+         TokenKind::Word => write!(f, "ShellLiteral({})", len),
          TokenKind::Backslash => write!(f, "ShellEscape({})", len),
-         TokenKind::ShellRedirect => write!(f, "ShellRedirect({})", len),
-         TokenKind::ShellDoubleQuote => write!(f, "ShellDoubleQuote({})", len),
-         TokenKind::ShellSingleQuote => write!(f, "ShellSingleQuote({})", len),
+
+         TokenKind::RedirectOut => write!(f, "RedirectOut({})", len),
+         TokenKind::RedirectOutAppend => write!(f, "RedirectOutAppend({})", len),
+         TokenKind::RedirectIn => write!(f, "RedirectIn({})", len),
+         TokenKind::RedirectInDoc => write!(f, "RedirectInDoc({})", len),
+         TokenKind::RedirectInStr => write!(f, "RedirectInStr({})", len),
+
+         TokenKind::DoubleQuote => write!(f, "ShellDoubleQuote({})", len),
+         TokenKind::SingleQuote => write!(f, "ShellSingleQuote({})", len),
       }
    }
 }
@@ -88,6 +94,7 @@ impl fmt::Display for Token {
 pub enum TokenKind {
    WhiteSpace,
    Newline,
+   LineContinuation,
 
    Dollar,
    Plus,
@@ -106,10 +113,19 @@ pub enum TokenKind {
    Backslash,
 
    // shell tokens
-   ShellLiteral,
-   ShellRedirect,
-   ShellDoubleQuote,
-   ShellSingleQuote,
+   Word,
+   DoubleQuote,
+   SingleQuote,
+
+   // shell redirect
+   RedirectOut,
+   RedirectOutAppend,
+   RedirectIn,
+   RedirectInDoc,
+   RedirectInStr,
+
+
+
 
    Dot,
    Comma,
