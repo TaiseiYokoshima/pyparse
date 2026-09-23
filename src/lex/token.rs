@@ -75,6 +75,7 @@ impl fmt::Display for Token {
          TokenKind::Dollar => write!(f, "Dollar({})", len),
          TokenKind::Pipe => write!(f, "Pipe({})", len),
          TokenKind::Newline => write!(f, "Newline({})", len),
+         TokenKind::LineContinuation => write!(f, "LineContinuation({})", len),
          TokenKind::Word => write!(f, "ShellLiteral({})", len),
          TokenKind::Backslash => write!(f, "ShellEscape({})", len),
 
@@ -86,6 +87,7 @@ impl fmt::Display for Token {
 
          TokenKind::DoubleQuote => write!(f, "ShellDoubleQuote({})", len),
          TokenKind::SingleQuote => write!(f, "ShellSingleQuote({})", len),
+         TokenKind::Fd => write!(f, "Fd({})", len),
       }
    }
 }
@@ -116,6 +118,7 @@ pub enum TokenKind {
    Word,
    DoubleQuote,
    SingleQuote,
+   Fd,
 
    // shell redirect
    RedirectOut,

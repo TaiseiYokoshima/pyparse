@@ -43,7 +43,11 @@ impl<'src> ShellCursor<'src> {
       self.len = 0;
    }
 
-   fn next(&mut self) -> Option<char> {
+   fn revert(&mut self) {
+      self.chars = self.src[self.pos+self.len..].chars().peekable();
+   }
+
+   fn pop(&mut self) -> Option<char> {
       self.chars.next()
    }
 
@@ -60,34 +64,42 @@ impl<'src> ShellCursor<'src> {
       token
    }
 
-   fn shell_word(&mut self) -> Result<Token, LexError> {
-      let kind = TokenKind::Word;
+   fn str(&self) -> &str {
+      &self.src[self.pos..self.pos + self.len]
+   }
 
-      while let Some(char) = self.peek() {
+   fn shell_word(&mut self, char: char) -> Result<Token, LexError> {
+      assert!(self.len == 0);
+
+      let mut char = char;
+      loop {
          match char {
-            '\\' => {
-               self.next();
-               let pos = self.pos + self.len;
-               self.len += 1;
+            '\\' => match self.pop() {
+               None => {
+                  let pos = self.pos + self.len;
+                  self.reset();
 
-               let next_char = self.chars.next().ok_or(LexError {
-                  kind: LexErrorKind::TrailingBackslash,
-                  span: Span::zero(pos),
-               })?;
+                  return Err(LexError {
+                     kind: LexErrorKind::TrailingBackslash,
+                     span: Span::zero(pos),
+                  });
+               }
+               Some(escaped) => {
+                  self.len += 1 + escaped.len_utf8();
+               }
+            },
+            '$' | '"' | '\'' | ' ' | '\t' | '\n' | '(' | ')' | '>' | '<' | '|' | '&' | ':' | ';' => break self.revert(),
+            _ => self.len += char.len_utf8(),
+         };
 
-               self.len += next_char.len_utf8();
-               continue;
-            }
-
-            '$' | '"' | '\'' | ' ' | '\t' | '\n' | '(' | ')' | '>' | '<' | '|' | '&' | ':'
-            | ';' => break,
-            _ => {
-               self.next();
-               self.len += char.len_utf8();
-            }
+         if let Some(next) = self.pop() {
+            char = next;
+         } else {
+            break;
          };
       }
 
+      let kind = TokenKind::Word;
       let span = Span::new(self.pos, self.len);
       let token = Token::new(kind, span);
       self.pos += self.len;
@@ -105,13 +117,12 @@ impl<'src> ShellCursor<'src> {
       while let Some(char) = self.peek() {
          match char {
             '>' | '<' => {
-               self.next();
+               self.pop();
                self.len += 1;
-            },
+            }
             _ => break,
          };
-      };
-
+      }
 
       let str = &self.src[self.pos..self.pos + self.len];
 
@@ -123,8 +134,8 @@ impl<'src> ShellCursor<'src> {
          "<<" => {
             self.redirect_doc();
             TokenKind::RedirectInDoc
-         },
-         _ => <some error>
+         }
+         _ => todo!(),
       };
 
       let span = Span::new(self.pos, self.len);
@@ -138,7 +149,7 @@ impl<'src> ShellCursor<'src> {
    }
 
    pub fn token(&mut self) -> Result<Token, LexError> {
-      let Some(char) = self.next() else {
+      let Some(char) = self.pop() else {
          return Ok(Token {
             kind: TokenKind::Eof,
             span: Span::zero(self.pos),
@@ -146,44 +157,18 @@ impl<'src> ShellCursor<'src> {
       };
 
       let token = match char {
-         'f' if self.peek() == Some('d') => todo!("impl use of fd"),
          '(' => self.single_byte_token(TokenKind::OpenParen),
          ')' => self.single_byte_token(TokenKind::CloseParen),
          '|' => self.single_byte_token(TokenKind::Pipe),
          '&' => self.single_byte_token(TokenKind::Ampersand),
+         '$' => self.single_byte_token(TokenKind::Dollar),
          ';' => self.single_byte_token(TokenKind::Semi),
          '"' => self.single_byte_token(TokenKind::DoubleQuote),
          '\'' => self.single_byte_token(TokenKind::SingleQuote),
+         '\n' => self.single_byte_token(TokenKind::Newline),
          ':' => self.lang_expansion(),
          '>' | '<' => self.redirect()?,
-         '\\' => {
-            let Some(next_char) = self.next() else {
-               self.pos += 1;
-               return Err(LexError {
-                  kind: LexErrorKind::TrailingBackslash,
-                  span: Span::zero(self.pos),
-               });
-            };
-
-            if '\n' == next_char {
-               let start = self.pos;
-               let len = 2;
-               let span = Span::new(start, len);
-               let kind = TokenKind::LineContinuation;
-               self.pos += len;
-
-               Token { kind, span }
-            } else {
-               self.pos += 1;
-               self.len += next_char.len_utf8();
-               self.shell_word()?
-            }
-         }
-
-         char => {
-            self.len += char.len_utf8();
-            self.shell_word()?
-         }
+         _ => self.shell_word(char)?,
       };
 
       Ok(token)
@@ -195,7 +180,7 @@ fn shell_word_reports_trailing_backslash() {
    let source = "foo\\";
 
    let mut cursor = ShellCursor::new(source);
-   let result = cursor.shell_word();
+   let result = cursor.token();
    let error = result.expect_err("expected a trailing backslash error");
 
    assert_eq!(error.kind, LexErrorKind::TrailingBackslash);
@@ -207,9 +192,9 @@ fn start_with_newline() {
    let source = "\n";
 
    let mut cursor = ShellCursor::new(source);
-   let result = cursor.shell_word();
+   let result = cursor.token();
    assert!(result.is_ok());
-   assert_eq!(result.unwrap().kind, TokenKind::Word);
+   assert_eq!(result.unwrap().kind, TokenKind::Newline);
 }
 
 #[test]
@@ -219,140 +204,170 @@ fn line_continuation() {
    let mut cursor = ShellCursor::new(source);
    let result = cursor.token();
    assert!(result.is_ok());
-   assert_eq!(result.unwrap().kind, TokenKind::WhiteSpace);
+   assert_eq!(result.unwrap().kind, TokenKind::Word);
 }
-
 
 #[test]
 fn shell_word_ascii() {
-    let source = "hello";
+   let source = "hello";
 
-    let mut cursor = ShellCursor::new(source);
-    let token = cursor.shell_word().unwrap();
+   let mut cursor = ShellCursor::new(source);
+   let token = cursor.token().unwrap();
 
-    assert_eq!(token.kind, TokenKind::Word);
-    assert_eq!(token.span, Span::new(0, 5));
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span, Span::new(0, 5));
 }
 
 #[test]
 fn shell_word_stops_at_space() {
-    let source = "hello world";
+   let source = "hello world";
 
-    let mut cursor = ShellCursor::new(source);
-    let token = cursor.shell_word().unwrap();
+   let mut cursor = ShellCursor::new(source);
+   let token = cursor.token().unwrap();
 
-    assert_eq!(token.kind, TokenKind::Word);
-    assert_eq!(token.span, Span::new(0, 5));
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span, Span::new(0, 5));
 }
 
 #[test]
 fn shell_word_stops_at_shell_operator() {
-    let source = "hello|world";
+   let source = "hello|world";
 
-    let mut cursor = ShellCursor::new(source);
-    let token = cursor.shell_word().unwrap();
+   let mut cursor = ShellCursor::new(source);
+   let token = cursor.token().unwrap();
 
-    assert_eq!(token.kind, TokenKind::Word);
-    assert_eq!(token.span, Span::new(0, 5));
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span, Span::new(0, 5));
 }
 
 #[test]
 fn shell_word_stops_at_expansion() {
-    let source = "hello$world";
+   let source = "hello$world";
 
-    let mut cursor = ShellCursor::new(source);
-    let token = cursor.shell_word().unwrap();
+   let mut cursor = ShellCursor::new(source);
+   let token = cursor.token().unwrap();
 
-    assert_eq!(token.kind, TokenKind::Word);
-    assert_eq!(token.span, Span::new(0, 5));
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span, Span::new(0, 5));
 }
 
 #[test]
 fn shell_word_stops_at_quotes() {
-    let source = "hello\"world";
+   let source = "hello\"world";
 
-    let mut cursor = ShellCursor::new(source);
-    let token = cursor.shell_word().unwrap();
+   let mut cursor = ShellCursor::new(source);
+   let token = cursor.token().unwrap();
 
-    assert_eq!(token.kind, TokenKind::Word);
-    assert_eq!(token.span, Span::new(0, 5));
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span, Span::new(0, 5));
 }
 
 #[test]
 fn shell_word_escaped_space() {
-    let source = r"hello\ world";
+   let source = r"hello\ world";
 
-    let mut cursor = ShellCursor::new(source);
-    let token = cursor.shell_word().unwrap();
+   let mut cursor = ShellCursor::new(source);
+   let token = cursor.token().unwrap();
 
-    assert_eq!(token.kind, TokenKind::Word);
-    assert_eq!(token.span, Span::new(0, 12));
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span, Span::new(0, 12));
 }
 
 #[test]
 fn shell_word_escaped_operator() {
-    let source = r"hello\|world";
+   let source = r"hello\|world";
 
-    let mut cursor = ShellCursor::new(source);
-    let token = cursor.shell_word().unwrap();
+   let mut cursor = ShellCursor::new(source);
+   let token = cursor.token().unwrap();
 
-    assert_eq!(token.kind, TokenKind::Word);
-    assert_eq!(token.span, Span::new(0, 12));
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span, Span::new(0, 12));
 }
 
 #[test]
 fn shell_word_escaped_dollar() {
-    let source = r"hello\$world";
+   let source = r"hello\$world";
 
-    let mut cursor = ShellCursor::new(source);
-    let token = cursor.shell_word().unwrap();
+   let mut cursor = ShellCursor::new(source);
+   let token = cursor.token().unwrap();
 
-    assert_eq!(token.kind, TokenKind::Word);
-    assert_eq!(token.span, Span::new(0, 12));
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span, Span::new(0, 12));
 }
 
 #[test]
 fn shell_word_escaped_quote() {
-    let source = r#"hello\"world"#;
+   let source = r#"hello\"world"#;
 
-    let mut cursor = ShellCursor::new(source);
-    let token = cursor.shell_word().unwrap();
+   let mut cursor = ShellCursor::new(source);
+   let token = cursor.token().unwrap();
 
-    assert_eq!(token.kind, TokenKind::Word);
-    assert_eq!(token.span, Span::new(0, 12));
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span, Span::new(0, 12));
 }
 
 #[test]
 fn shell_word_unicode() {
-    let source = "hello世界";
+   let source = "hello世界";
 
-    let mut cursor = ShellCursor::new(source);
-    let token = cursor.shell_word().unwrap();
+   let mut cursor = ShellCursor::new(source);
+   let token = cursor.token().unwrap();
 
-    assert_eq!(token.kind, TokenKind::Word);
-    assert_eq!(token.span, Span::new(0, 11));
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span, Span::new(0, 11));
 }
 
 #[test]
 fn shell_word_unicode_before_delimiter() {
-    let source = "hello世界 world";
+   let source = "hello世界 world";
 
-    let mut cursor = ShellCursor::new(source);
-    let token = cursor.shell_word().unwrap();
+   let mut cursor = ShellCursor::new(source);
+   let token = cursor.token().unwrap();
 
-    assert_eq!(token.kind, TokenKind::Word);
-    assert_eq!(token.span, Span::new(0, 11));
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span, Span::new(0, 11));
 }
 
 #[test]
 fn shell_word_trailing_backslash() {
-    let source = "hello\\";
+   let source = "hello\\";
 
-    let mut cursor = ShellCursor::new(source);
-    let result = cursor.shell_word();
+   let mut cursor = ShellCursor::new(source);
+   let result = cursor.token();
 
-    let error = result.expect_err("expected trailing backslash");
+   let error = result.expect_err("expected trailing backslash");
 
-    assert_eq!(error.kind, LexErrorKind::TrailingBackslash);
-    assert_eq!(error.span, Span::zero(5));
+   assert_eq!(error.kind, LexErrorKind::TrailingBackslash);
+   assert_eq!(error.span, Span::zero(5));
+}
+
+#[test]
+fn shell_word_delimiter() {
+   let source = "hello$test\nhaha";
+   let mut cursor = ShellCursor::new(source);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::Word);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::Dollar);
+   assert_eq!(token.span.len(), 1);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span.len(), 4);
+
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::Newline);
+   assert_eq!(token.span.len(), 1);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span.len(), 4);
 }
