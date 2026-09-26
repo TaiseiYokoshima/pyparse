@@ -88,6 +88,7 @@ impl fmt::Display for Token {
          TokenKind::DoubleQuote => write!(f, "ShellDoubleQuote({})", len),
          TokenKind::SingleQuote => write!(f, "ShellSingleQuote({})", len),
          TokenKind::Fd => write!(f, "Fd({})", len),
+         TokenKind::LangVar => write!(f, "LangVar({})", len),
       }
    }
 }
@@ -118,6 +119,7 @@ pub enum TokenKind {
    Word,
    DoubleQuote,
    SingleQuote,
+   LangVar,
    Fd,
 
    // shell redirect

@@ -2,7 +2,7 @@ mod lexer;
 mod stream;
 mod token;
 
-use std::iter::Peekable;
+use std::{collections::VecDeque, iter::Peekable};
 use std::str::Chars;
 
 use crate::source::Source;
@@ -12,6 +12,7 @@ pub use token::{Span, Token, TokenKind};
 #[derive(Debug, PartialEq, Eq)]
 pub enum LexErrorKind {
    TrailingBackslash,
+   TrailingLang,
 }
 
 #[derive(Debug)]
@@ -25,6 +26,12 @@ pub struct ShellCursor<'src> {
    chars: Peekable<Chars<'src>>,
    pos: usize,
    len: usize,
+}
+
+macro_rules! delimiters_arm {
+    () => {
+        '$' | '"' | '\'' | ' ' | '\t' | '\n' | '(' | ')' | '>' | '<' | '|' | '&' | ':' | ';'
+    };
 }
 
 impl<'src> ShellCursor<'src> {
@@ -44,7 +51,7 @@ impl<'src> ShellCursor<'src> {
    }
 
    fn revert(&mut self) {
-      self.chars = self.src[self.pos+self.len..].chars().peekable();
+      self.chars = self.src[self.pos + self.len..].chars().peekable();
    }
 
    fn pop(&mut self) -> Option<char> {
@@ -88,7 +95,7 @@ impl<'src> ShellCursor<'src> {
                   self.len += 1 + escaped.len_utf8();
                }
             },
-            '$' | '"' | '\'' | ' ' | '\t' | '\n' | '(' | ')' | '>' | '<' | '|' | '&' | ':' | ';' => break self.revert(),
+            delimiters_arm!() => break self.revert(),
             _ => self.len += char.len_utf8(),
          };
 
@@ -99,30 +106,32 @@ impl<'src> ShellCursor<'src> {
          };
       }
 
-      let kind = TokenKind::Word;
-      let span = Span::new(self.pos, self.len);
-      let token = Token::new(kind, span);
+      let token = if self.str() == "fd" {
+         let kind = TokenKind::Fd;
+         let span = Span::new(self.pos, self.len);
+         Token::new(kind, span)
+      } else {
+         let kind = TokenKind::Word;
+         let span = Span::new(self.pos, self.len);
+         Token::new(kind, span)
+      };
+
       self.pos += self.len;
       self.len = 0;
       Ok(token)
    }
 
-   fn redirect_doc(&mut self) {
-      todo!()
-   }
-
    fn redirect(&mut self) -> Result<Token, LexError> {
       self.len += 1;
 
-      while let Some(char) = self.peek() {
+      while let Some(char) = self.pop() {
          match char {
-            '>' | '<' => {
-               self.pop();
-               self.len += 1;
-            }
+            '>' | '<' => self.len += 1,
             _ => break,
          };
       }
+
+      self.revert();
 
       let str = &self.src[self.pos..self.pos + self.len];
 
@@ -131,10 +140,7 @@ impl<'src> ShellCursor<'src> {
          ">>" => TokenKind::RedirectOutAppend,
          "<" => TokenKind::RedirectIn,
          "<<<" => TokenKind::RedirectInStr,
-         "<<" => {
-            self.redirect_doc();
-            TokenKind::RedirectInDoc
-         }
+         "<<" => TokenKind::RedirectInDoc,
          _ => todo!(),
       };
 
@@ -144,8 +150,34 @@ impl<'src> ShellCursor<'src> {
       Ok(token)
    }
 
-   fn lang_expansion(&mut self) -> Token {
-      todo!()
+   fn lang_expansion(&mut self) -> Result<Token, LexError> {
+      self.len += 1;
+
+      while let Some(char) = self.pop() {
+         match char {
+            '{' => todo!("lang block not implemented"),
+            '(' => todo!("lang expr not implemented"),
+            delimiters_arm!() => {
+               self.revert();
+               break;
+            }
+            _ => self.len += char.len_utf8(),
+         };
+      };
+
+      if self.src == ":" {
+         let kind = LexErrorKind::TrailingLang;
+         let span = Span::one(self.pos);
+         return Err(LexError { kind, span });
+      };
+
+
+      println!("str: {:?}", self.str());
+      let kind = TokenKind::LangVar;
+      let span = Span::new(self.pos, self.len);
+      self.reset();
+
+      return Ok(Token::new(kind, span));
    }
 
    pub fn token(&mut self) -> Result<Token, LexError> {
@@ -166,7 +198,8 @@ impl<'src> ShellCursor<'src> {
          '"' => self.single_byte_token(TokenKind::DoubleQuote),
          '\'' => self.single_byte_token(TokenKind::SingleQuote),
          '\n' => self.single_byte_token(TokenKind::Newline),
-         ':' => self.lang_expansion(),
+         ' ' => self.single_byte_token(TokenKind::WhiteSpace),
+         ':' => self.lang_expansion()?,
          '>' | '<' => self.redirect()?,
          _ => self.shell_word(char)?,
       };
@@ -343,7 +376,7 @@ fn shell_word_trailing_backslash() {
 
 #[test]
 fn shell_word_delimiter() {
-   let source = "hello$test\nhaha";
+   let source = "hello$test\nhaha\nfd 1";
    let mut cursor = ShellCursor::new(source);
 
    let result = cursor.token();
@@ -360,7 +393,6 @@ fn shell_word_delimiter() {
    assert_eq!(token.kind, TokenKind::Word);
    assert_eq!(token.span.len(), 4);
 
-
    let result = cursor.token();
    let token = result.expect("expected token instead of error");
    assert_eq!(token.kind, TokenKind::Newline);
@@ -370,4 +402,189 @@ fn shell_word_delimiter() {
    let token = result.expect("expected token instead of error");
    assert_eq!(token.kind, TokenKind::Word);
    assert_eq!(token.span.len(), 4);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::Newline);
+   assert_eq!(token.span.len(), 1);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::Fd);
+   assert_eq!(token.span.len(), 2);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::WhiteSpace);
+   assert_eq!(token.span.len(), 1);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span.len(), 1);
 }
+
+#[test]
+fn redirect() {
+   let source = "fd 2 > test";
+   let mut cursor = ShellCursor::new(source);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::Fd);
+   assert_eq!(token.span.len(), 2);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::WhiteSpace);
+   assert_eq!(token.span.len(), 1);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span.len(), 1);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::WhiteSpace);
+   assert_eq!(token.span.len(), 1);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::RedirectOut);
+   assert_eq!(token.span.len(), 1);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::WhiteSpace);
+   assert_eq!(token.span.len(), 1);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span.len(), 4);
+}
+
+#[test]
+fn all_redirect() {
+   let source = "> >> < << <<<";
+   let mut cursor = ShellCursor::new(source);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::RedirectOut);
+   assert_eq!(token.span.len(), 1);
+   cursor.token().unwrap();
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::RedirectOutAppend);
+   assert_eq!(token.span.len(), 2);
+   cursor.token().unwrap();
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::RedirectIn);
+   assert_eq!(token.span.len(), 1);
+   cursor.token().unwrap();
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::RedirectInDoc);
+   assert_eq!(token.span.len(), 2);
+   cursor.token().unwrap();
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::RedirectInStr);
+   assert_eq!(token.span.len(), 3);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::Eof);
+   assert_eq!(token.span.len(), 0);
+
+   let result = cursor.token();
+   let token = result.expect("expected token instead of error");
+   assert_eq!(token.kind, TokenKind::Eof);
+   assert_eq!(token.span.len(), 0);
+}
+
+
+#[test]
+fn lang_simpel() {
+   let source = ":test";
+   let mut cursor = ShellCursor::new(source);
+   let token = cursor.token().expect("expected token instead of error");
+   assert_eq!(token.span.len(), 5);
+}
+
+#[test]
+fn lang_var() {
+   let source = "cd :test || echo \"failed\"";
+   let mut cursor = ShellCursor::new(source);
+
+   let mut tokens: VecDeque<_> = (0..100)
+      .map(|_| cursor.token().expect("expected token instead of error"))
+      .filter(|t| t.kind != TokenKind::Eof)
+      .collect();
+
+   let whitespace_count = tokens
+      .iter()
+      .filter(|t| t.kind == TokenKind::WhiteSpace)
+      .count();
+
+   tokens.retain(|x| x.kind != TokenKind::WhiteSpace);
+
+   assert_eq!(whitespace_count, 4);
+
+   let token = tokens.pop_front().unwrap();
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span.len(), 2);
+
+   let token = tokens.pop_front().unwrap();
+   assert_eq!(token.kind, TokenKind::LangVar);
+   assert_eq!(token.span.len(), 5);
+
+   let token = tokens.pop_front().unwrap();
+   assert_eq!(token.kind, TokenKind::Pipe);
+   assert_eq!(token.span.len(), 1);
+
+   let token = tokens.pop_front().unwrap();
+   assert_eq!(token.kind, TokenKind::Pipe);
+   assert_eq!(token.span.len(), 1);
+
+   let token = tokens.pop_front().unwrap();
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span.len(), 4);
+
+   let token = tokens.pop_front().unwrap();
+   assert_eq!(token.kind, TokenKind::DoubleQuote);
+   assert_eq!(token.span.len(), 1);
+
+   let token = tokens.pop_front().unwrap();
+   assert_eq!(token.kind, TokenKind::Word);
+   assert_eq!(token.span.len(), 6);
+
+   let token = tokens.pop_front().unwrap();
+   assert_eq!(token.kind, TokenKind::DoubleQuote);
+   assert_eq!(token.span.len(), 1);
+}
+
+
+#[test]
+#[should_panic(expected = "lang block not implemented")]
+fn lang_block() {
+   let src = ":{hahaha}";
+   let mut cursor = ShellCursor::new(src);
+   cursor.token().unwrap();
+}
+
+#[test]
+#[should_panic(expected = "lang expr not implemented")]
+fn lang_expr() {
+   let src = ":(hahaha)";
+   let mut cursor = ShellCursor::new(src);
+   cursor.token().unwrap();
+}
+
