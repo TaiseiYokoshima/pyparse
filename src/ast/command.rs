@@ -1,4 +1,4 @@
-use crate::ast::Span;
+use crate::lex::Span;
 
 pub enum WordPartKind {
    Id,

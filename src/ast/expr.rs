@@ -1,12 +1,11 @@
+use crate::lex::Span;
 use std::collections::VecDeque;
-
-use crate::ast::Span;
 
 pub enum BinOperator {
    Add,
    Min,
    Sub,
-   Div
+   Div,
 }
 
 pub enum Lit {
@@ -20,7 +19,7 @@ pub struct Expr {
    span: Span,
 }
 
-pub struct Block { 
+pub struct Block {
    stmts: VecDeque<Stmt>,
    span: Span,
 }

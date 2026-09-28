@@ -3,38 +3,31 @@ use std::fmt;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Span {
    pub start: usize,
-   pub end: usize,
+   pub len: u32,
 }
 
 impl Span {
    pub fn zero(pos: usize) -> Self {
       Self {
          start: pos,
-         end: pos,
+         len: 0,
       }
    }
 
    pub fn one(pos: usize) -> Self {
       Self {
          start: pos,
-         end: pos + 1,
+         len: 1,
       }
    }
 
-   pub fn new(pos: usize, len: usize) -> Self {
+   pub fn new(pos: usize, len: u32) -> Self {
       Self {
          start: pos,
-         end: pos + len,
+         len: len,
       }
    }
 }
-
-impl Span {
-   pub fn len(&self) -> usize {
-      self.end - self.start
-   }
-}
-
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Token {
@@ -53,7 +46,7 @@ impl Token {
 
 impl fmt::Display for Token {
    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-      let len = self.span.len();
+      let len = self.span.len;
 
       match self.kind {
          TokenKind::Dot => write!(f, "Dot({})", len),
@@ -89,6 +82,11 @@ impl fmt::Display for Token {
          TokenKind::SingleQuote => write!(f, "ShellSingleQuote({})", len),
          TokenKind::Fd => write!(f, "Fd({})", len),
          TokenKind::LangVar => write!(f, "LangVar({})", len),
+
+         TokenKind::And => write!(f, "And({})", len),
+         TokenKind::Or => write!(f, "Or({})", len),
+
+         TokenKind::Unknown => write!(f, "Unknown({})", len),
       }
    }
 }
@@ -114,6 +112,8 @@ pub enum TokenKind {
    Semi,
    Colon,
    Backslash,
+   Or,
+   And,
 
    // shell tokens
    Word,
@@ -129,6 +129,7 @@ pub enum TokenKind {
    RedirectInDoc,
    RedirectInStr,
 
+   Unknown,
 
 
 

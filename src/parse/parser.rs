@@ -1,25 +1,19 @@
 // use super::ast::{BP, BinOpn, BinOpr, Expr, LiteralKind};
 
-use super::lexer::Lexer;
-
-use crate::ast::{Token, TokenKind, command::{Cmd, Redirect}};
+use crate::ast::{TokenKind, command::{Cmd, Redirect}};
 use std::{collections::VecDeque, ops::Range};
 
-#[derive(Debug, Clone, Copy)]
-pub enum ErrorKind {
-   ExpectedExpression,
-   ExpectedOperator,
-   ExpectedCloseParen,
-}
+use crate::lex::{ShellCursor, Token, Span};
 
-pub struct Parser<'src> {
-   lexer: Lexer<'src>,
+pub struct ShellParser<'src> {
+   src: &'src str,
+   lexer: ShellCursor<'src>,
    token: Token,
 }
 
-impl<'src> Parser<'src> {
-   pub fn new(mut lexer: Lexer<'src>) -> Self {
-      let token = lexer.next();
+impl<'src> ShellParser<'src> {
+   pub fn new(mut lexer: ShellCursor<'src>) -> Self {
+      let token = lexer.token();
       Self {
          token,
          lexer

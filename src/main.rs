@@ -1,10 +1,14 @@
-// mod parse;
+#![feature(thread_local)]
+
+mod parse;
 
 mod ast;
 
 mod lex;
 mod source;
 mod start;
+
+
 
 fn main() {
    // use lex::{Lexer, TokenStream};
