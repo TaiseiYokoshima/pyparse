@@ -180,6 +180,21 @@ impl<'src> ShellCursor<'src> {
       token
    }
 
+
+   fn whitespace(&mut self) -> Token {
+      self.bump();
+
+      while let Some(' ') = self.first() {
+         self.bump();
+      };
+
+      let kind = TokenKind::WhiteSpace;
+      let span = self.span();
+      let token = Token::new(kind, span);
+
+      token
+   }
+
    pub fn token(&mut self) -> Token {
       let Some(char) = self.first() else {
          return Token {
@@ -196,7 +211,7 @@ impl<'src> ShellCursor<'src> {
          '"' => self.single_byte_token(TokenKind::DoubleQuote),
          '\'' => self.single_byte_token(TokenKind::SingleQuote),
          '\n' => self.single_byte_token(TokenKind::Newline),
-         ' ' => self.single_byte_token(TokenKind::WhiteSpace),
+         ' ' => self.whitespace(),
          ':' => self.single_byte_token(TokenKind::Colon),
          '|' => self.pipe(),
          '&' => self.ampersand(),

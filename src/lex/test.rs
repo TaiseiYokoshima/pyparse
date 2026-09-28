@@ -133,3 +133,13 @@ fn lang() {
    test!(TokenKind::Colon, span!(0, 1));
    test!(TokenKind::Word, span!(1, 4));
 }
+
+
+#[test]
+fn whitespace_groups_consecutive_spaces() {
+   src!("foo   bar");
+   test!(TokenKind::Word, span!(0, 3));
+   test!(TokenKind::WhiteSpace, span!(3, 3));
+   test!(TokenKind::Word, span!(6, 3));
+   test!(TokenKind::Eof, span!(9, 0));
+}
