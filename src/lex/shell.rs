@@ -25,7 +25,7 @@ impl<'src> Iterator for ShellCursor<'src> {
 
 macro_rules! delimiters_arm {
     () => {
-        '$' | '"' | '\'' | ' ' | '\t' | '\n' | '(' | ')' | '>' | '<' | '|' | '&' | ':' | ';'
+        '$' | '"' | '\'' | ' ' | '\t' | '\n' | '(' | ')' | '>' | '<' | '|' | '&' | ':' | ';' | '-' | '_'
     };
 }
 
@@ -207,6 +207,10 @@ impl<'src> ShellCursor<'src> {
          '(' => self.single_byte_token(TokenKind::OpenParen),
          ')' => self.single_byte_token(TokenKind::CloseParen),
          '$' => self.single_byte_token(TokenKind::Dollar),
+         '-' => self.single_byte_token(TokenKind::Minus),
+         '_' => self.single_byte_token(TokenKind::Underscore),
+         '.' => self.single_byte_token(TokenKind::Dot),
+         ',' => self.single_byte_token(TokenKind::Comma),
          ';' => self.single_byte_token(TokenKind::Semi),
          '"' => self.single_byte_token(TokenKind::DoubleQuote),
          '\'' => self.single_byte_token(TokenKind::SingleQuote),

@@ -5,11 +5,19 @@ pub enum WordPartKind {
    Lit,
    StrLit,
    Cmd(Box<Cmd>),
+   LangVar,
 }
 
-struct WordPart {
+pub struct WordPart {
    kind: WordPartKind,
    span: Span,
+}
+
+
+impl WordPart {
+   pub fn new(kind: WordPartKind, span: Span) -> Self {
+      Self { kind, span }
+   }
 }
 
 pub struct Word(Vec<WordPart>, Span);
@@ -25,7 +33,7 @@ pub enum RedirectKind {
    ReadStr,
 }
 
-pub struct Redirect(Word, RedirectKind, Word);
+pub struct Redirect(Vec<Word>, RedirectKind, Vec<Word>);
 
 pub enum CmdPart {
    Word(Word),
@@ -42,5 +50,6 @@ pub struct Cmd {
    vars: Vec<(Span, Span)>,
    words: Vec<CmdPart>,
    span: Span,
-   bin: Option<(CmdOperator, Box<Cmd>)>
+   bin: Option<(CmdOperator, Box<Cmd>)>,
+   bg: bool,
 }
